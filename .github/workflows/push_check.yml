@@ -42,6 +42,10 @@ jobs:
         run: npm ci
       - name: Run tests
         run: npm run test:coverage
+        env:
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          CHAINSTACK_URL: ${{ secrets.CHAINSTACK_URL }}
+          POLYGONSCAN_API_KEY: ${{ secrets.POLYGONSCAN_API_KEY }}
       - name: Coveralls GitHub Action
         uses: coverallsapp/github-action@1.1.3
         with:
