@@ -22,21 +22,21 @@ npm run compile
 
 This command compiles the contract using the Hardhat compiler. It will execute the command `npx hardhat compile`, which will compile the contract code, and generate the bytecode and ABI needed to deploy the contract on the Ethereum blockchain.
 
-### Lint TypeScript
+### Lint JavaScript
 
 ```
-npm run lint:ts
+npm run lint:js
 ```
 
-This command runs the ESLint linter on all TypeScript files in the project. It will execute the command `npx eslint '**/*.ts'`, which will check all TypeScript files in the project against a set of linting rules and report any errors or warnings.
+This command runs the ESLint linter on all JavaScript files in the project. It will execute the command `npx eslint '**/*.js'`, which will check all JavaScript files in the project against a set of linting rules and report any errors or warnings.
 
-### Lint TypeScript and fix issues
+### Lint Javascript and fix issues
 
 ```
-npm run lint:ts-fix
+npm run lint:js-fix
 ```
 
-This command runs the ESLint linter on all TypeScript files in the project and automatically fix any issues it finds.
+This command runs the ESLint linter on all JavaScript files in the project and automatically fix any issues it finds.
 
 ### Lint Solidity
 
@@ -60,7 +60,7 @@ This command runs the Prettier and Solhint linters on all the Solidity files in 
 npm run lint
 ```
 
-This command runs both TypeScript and Solidity linters in the project.
+This command runs both JavaScript and Solidity linters in the project.
 
 ### Lint all and fix issues
 
@@ -68,7 +68,7 @@ This command runs both TypeScript and Solidity linters in the project.
 npm run lint:fix
 ```
 
-This command runs both TypeScript and Solidity linters in the project and automatically fix any issues it finds.
+This command runs both JavaScript and Solidity linters in the project and automatically fix any issues it finds.
 
 ## Contribution
 
