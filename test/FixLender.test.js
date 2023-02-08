@@ -24,6 +24,7 @@ describe("Fixed Lender Pool", function () {
   let stableAddress;
   let bonusAddress;
   let currentTime;
+
   before(async function () {
     [admin, lender] = await ethers.getSigners();
     lenderFactory = await ethers.getContractFactory("FixLender");
