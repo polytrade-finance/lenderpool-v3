@@ -90,7 +90,6 @@ contract FixLender is IFixLender, AccessControl {
             _poolMaxLimit > poolSize + amount,
             "Pool has reached its limit"
         );
-        require(amount != 0, "Invalid Amount");
         require(amount >= _minDeposit, "Amount is less than Min. Deposit");
         require(
             block.timestamp < _depositEndDate,

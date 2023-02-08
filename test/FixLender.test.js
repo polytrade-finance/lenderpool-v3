@@ -209,12 +209,6 @@ describe("Fixed Lender Pool", function () {
       ).to.be.revertedWith("Amount is less than Min. Deposit");
     });
 
-    it("Should fail if deposit amount is Invalid", async function () {
-      await expect(
-        lenderContract.connect(lender).deposit(toStable("0"))
-      ).to.be.revertedWith("Invalid Amount");
-    });
-
     it("Should fail if has passed deposit end date", async function () {
       time.increase(5 * DAY);
       await expect(
