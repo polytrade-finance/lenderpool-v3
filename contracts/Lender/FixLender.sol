@@ -90,6 +90,10 @@ contract FixLender is IFixLender, AccessControl {
         );
         require(amount != 0, "Invalid Amount");
         require(amount >= _minDeposit, "Amount is less than Min. Deposit");
+        require(
+            block.timestamp < _depositEndDate,
+            "Deposit End Date has passed"
+        );
         _stableToken.safeTransferFrom(msg.sender, address(this), amount);
         poolSize += amount;
         lenders[msg.sender].totalDeposit += amount;

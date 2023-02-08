@@ -34,6 +34,7 @@
     "solhint-plugin-prettier": "^0.0.5"
   },
   "dependencies": {
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.7",
     "@nomicfoundation/hardhat-toolbox": "^2.0.1",
     "@openzeppelin/contracts": "^4.8.1",
     "chai": "^4.3.7",
