@@ -13,10 +13,11 @@ import "contracts/Lender/Interface/IFixLender.sol";
  * Principal stable amount with its stable and bonus rewards based on APR and Rate
  * @dev The contract is in development stage
  */
-abstract contract FixLender is IFixLender, AccessControl {
+contract FixLender is IFixLender, AccessControl {
     using SafeERC20 for IToken;
     mapping(address => Lender) public lenders;
 
+    uint256 public poolSize;
     uint256 private immutable _stableApr;
     uint256 private immutable _bonusRate;
     uint256 private immutable _poolStartDate;
@@ -77,5 +78,21 @@ abstract contract FixLender is IFixLender, AccessControl {
         _minDeposit = minDeposit_;
         _maxPoolSize = maxPoolSize_;
         _verificationStatus = verification_;
+    }
+
+    /**
+     * @dev See {IFixLender-deposit}.
+     */
+    function deposit(uint256 amount) external {
+        require(_maxPoolSize > poolSize, "Pool has reached its limit");
+        require(amount != 0, "Invalid Amount");
+        require(amount >= _minDeposit, "Amount is less than Min. Deposit");
+        _stableToken.safeTransferFrom(msg.sender, address(this), amount);
+        poolSize += amount;
+        lenders[msg.sender].totalDeposit += amount;
+        lenders[msg.sender].deposits.push(
+            Deposit(amount, block.timestamp, block.timestamp)
+        );
+        emit Deposited(msg.sender, amount);
     }
 }
