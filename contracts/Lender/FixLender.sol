@@ -24,7 +24,7 @@ contract FixLender is IFixLender, AccessControl {
     uint256 private immutable _depositEndDate;
     uint256 private immutable _poolPeriod;
     uint256 private immutable _minDeposit;
-    uint256 private immutable _maxPoolSize;
+    uint256 private immutable _poolMaxLimit;
     bool private immutable _verificationStatus;
 
     IToken private immutable _stableToken;
@@ -32,7 +32,7 @@ contract FixLender is IFixLender, AccessControl {
 
     /**
      * @dev Sets the values for admin, stableToken, bonusToken, stableApr, bonusRate, bonusRate, poolStartDate,
-     * depositEndDate, minDeposit, maxPoolSize and verification
+     * depositEndDate, minDeposit, PoolMaxLimit and verification
      * @param admin_ address of admin
      * @param stableToken_  address of stable Token
      * @param bonusToken_ address of bonus Token
@@ -42,7 +42,7 @@ contract FixLender is IFixLender, AccessControl {
      * @param depositEndDate_ timestamp for the end of depositing
      * @param poolPeriod_ duration of pool in days, starting from poolStartDate
      * @param minDeposit_ minimum deposit amount for users
-     * @param maxPoolSize_ maximum tokens to deposit in pool, after reaching contract stops receiving deposit
+     * @param poolMaxLimit_ maximum tokens to deposit in pool, after reaching contract stops receiving deposit
      * @param verification_ verification status for pool(True = KYC required, False = KYC not required)
      */
     constructor(
@@ -55,7 +55,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 depositEndDate_,
         uint256 poolPeriod_,
         uint256 minDeposit_,
-        uint256 maxPoolSize_,
+        uint256 poolMaxLimit_,
         bool verification_
     ) {
         require(admin_ != address(0), "Invalid Admin address");
@@ -64,7 +64,7 @@ contract FixLender is IFixLender, AccessControl {
         require(poolStartDate_ > block.timestamp, "Invalid Pool Start Date");
         require(depositEndDate_ > block.timestamp, "Invalid Deposit End Date");
         require(poolPeriod_ != 0, "Invalid Pool Duration");
-        require(maxPoolSize_ > minDeposit_, "Invalid Max. Pool Size");
+        require(poolMaxLimit_ > minDeposit_, "Invalid Pool Max. Limit");
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
         _stableToken = IToken(stableToken_);
         _bonusToken = IToken(bonusToken_);
@@ -75,8 +75,8 @@ contract FixLender is IFixLender, AccessControl {
         _poolStartDate = poolStartDate_;
         _depositEndDate = depositEndDate_;
         _poolPeriod = poolPeriod_ * 1 days;
-        _minDeposit = minDeposit_;
-        _maxPoolSize = maxPoolSize_;
+        _minDeposit = minDeposit_ * (10 ** _stableToken.decimals());
+        _poolMaxLimit = poolMaxLimit_ * (10 ** _stableToken.decimals());
         _verificationStatus = verification_;
     }
 
@@ -84,7 +84,10 @@ contract FixLender is IFixLender, AccessControl {
      * @dev See {IFixLender-deposit}.
      */
     function deposit(uint256 amount) external {
-        require(_maxPoolSize > poolSize, "Pool has reached its limit");
+        require(
+            _poolMaxLimit > poolSize + amount,
+            "Pool has reached its limit"
+        );
         require(amount != 0, "Invalid Amount");
         require(amount >= _minDeposit, "Amount is less than Min. Deposit");
         _stableToken.safeTransferFrom(msg.sender, address(this), amount);
