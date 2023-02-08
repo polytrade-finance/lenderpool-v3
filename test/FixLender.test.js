@@ -232,7 +232,7 @@ describe("Fixed Lender Pool", function () {
           .deposit(ethers.utils.parseUnits("0", StableDecimal))
       ).to.be.revertedWith("Invalid Amount");
     });
-    it("Should fail if deposit amount pass Pool Max. Limit", async function () {
+    it("Should fail if deposit amount + pool size pass the Pool Max. Limit", async function () {
       await stableToken
         .connect(lender)
         .approve(
