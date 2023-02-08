@@ -10,7 +10,12 @@ module.exports = {
   networks: {
     mumbai: {
       url: `${CHAINSTACK_URL}`,
-      accounts: [`${PRIVATE_KEY}`],
+      accounts: [
+        `${
+          PRIVATE_KEY ||
+          "0x0000000000000000000000000000000000000000000000000000000000000000"
+        }`,
+      ],
     },
   },
   gasReporter: {
