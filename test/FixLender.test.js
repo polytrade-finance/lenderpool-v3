@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
 const {
   StableDecimal,
   BonusDecimal,
@@ -231,6 +232,14 @@ describe("Fixed Lender Pool", function () {
           .connect(lender)
           .deposit(ethers.utils.parseUnits("0", StableDecimal))
       ).to.be.revertedWith("Invalid Amount");
+    });
+    it("Should fail if has passed deposit end date", async function () {
+      time.increase(5 * DAY);
+      await expect(
+        lenderContract
+          .connect(lender)
+          .deposit(ethers.utils.parseUnits("100", StableDecimal))
+      ).to.be.revertedWith("Deposit End Date has passed");
     });
     it("Should fail if deposit amount + pool size pass the Pool Max. Limit", async function () {
       await stableToken
