@@ -2,11 +2,6 @@
 pragma solidity ^0.8.17;
 
 interface IFixLender {
-    struct Lender {
-        uint256 totalDeposit;
-        Deposit[] deposits;
-    }
-
     struct Deposit {
         uint256 amount;
         uint256 depositDate;
