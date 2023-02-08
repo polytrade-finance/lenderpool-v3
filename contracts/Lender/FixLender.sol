@@ -15,11 +15,13 @@ import "contracts/Lender/Interface/IFixLender.sol";
  */
 contract FixLender is IFixLender, AccessControl {
     using SafeERC20 for IToken;
-    mapping(address => Lender) public lenders;
+    mapping(address => Deposit[]) public lenders;
 
     uint256 public poolSize;
     uint256 private immutable _stableApr;
     uint256 private immutable _bonusRate;
+    uint256 private immutable _stableDecimal;
+    uint256 private immutable _bonusDecimal;
     uint256 private immutable _poolStartDate;
     uint256 private immutable _depositEndDate;
     uint256 private immutable _poolPeriod;
@@ -68,15 +70,15 @@ contract FixLender is IFixLender, AccessControl {
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
         _stableToken = IToken(stableToken_);
         _bonusToken = IToken(bonusToken_);
+        _stableDecimal = _stableToken.decimals();
+        _bonusDecimal = _bonusToken.decimals();
         _stableApr = stableApr_;
-        _bonusRate =
-            bonusRate_ *
-            (10 ** (_bonusToken.decimals() - _stableToken.decimals()));
+        _bonusRate = bonusRate_ * (10 ** (_bonusDecimal - _stableDecimal));
         _poolStartDate = poolStartDate_;
         _depositEndDate = depositEndDate_;
         _poolPeriod = poolPeriod_ * 1 days;
-        _minDeposit = minDeposit_ * (10 ** _stableToken.decimals());
-        _poolMaxLimit = poolMaxLimit_ * (10 ** _stableToken.decimals());
+        _minDeposit = minDeposit_ * (10 ** _stableDecimal);
+        _poolMaxLimit = poolMaxLimit_ * (10 ** _stableDecimal);
         _verificationStatus = verification_;
     }
 
@@ -94,12 +96,11 @@ contract FixLender is IFixLender, AccessControl {
             block.timestamp < _depositEndDate,
             "Deposit End Date has passed"
         );
-        _stableToken.safeTransferFrom(msg.sender, address(this), amount);
         poolSize += amount;
-        lenders[msg.sender].totalDeposit += amount;
-        lenders[msg.sender].deposits.push(
+        lenders[msg.sender].push(
             Deposit(amount, block.timestamp, block.timestamp)
         );
+        _stableToken.safeTransferFrom(msg.sender, address(this), amount);
         emit Deposited(msg.sender, amount);
     }
 }
