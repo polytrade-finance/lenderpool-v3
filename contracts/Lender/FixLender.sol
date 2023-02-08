@@ -3,8 +3,8 @@ pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "../Token/Interface/IToken.sol";
-import "./Interface/IFixLender.sol";
+import "contracts/Token/Interface/IToken.sol";
+import "contracts/Lender/Interface/IFixLender.sol";
 
 /**
  * @title Fixed Lender Pool contract
