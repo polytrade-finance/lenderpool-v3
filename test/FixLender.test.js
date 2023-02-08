@@ -12,20 +12,22 @@ const {
   MinDeposit,
   PoolMaxLimit,
 } = require("./constants/constants.helpers");
-const { now } = require("./helpers");
+const { now, toStable } = require("./helpers");
 
 describe("Fixed Lender Pool", function () {
   let admin;
   let lender;
   let lenderContract;
+  let lenderFactory;
   let stableToken;
   let bonusToken;
   let stableAddress;
   let bonusAddress;
+  let currentTime;
   before(async function () {
-    const [_admin, _lender] = await ethers.getSigners();
-    admin = _admin;
-    lender = _lender;
+    [admin, lender] = await ethers.getSigners();
+    lenderFactory = await ethers.getContractFactory("FixLender");
+    currentTime = await now();
     const StableToken = await ethers.getContractFactory("Token");
     stableToken = await StableToken.connect(lender).deploy(
       "Stable",
@@ -47,9 +49,7 @@ describe("Fixed Lender Pool", function () {
 
   describe("Constructor", function () {
     it("Should deploy lender successfully", async function () {
-      const currentTime = await now();
-      const LenderContract = await ethers.getContractFactory("FixLender");
-      lenderContract = await LenderContract.deploy(
+      lenderContract = await lenderFactory.deploy(
         admin.address,
         stableAddress,
         bonusAddress,
@@ -64,11 +64,10 @@ describe("Fixed Lender Pool", function () {
       );
       await lenderContract.deployed();
     });
+
     it("Should fail if any address is zero", async function () {
-      const currentTime = await now();
-      const LenderContract = await ethers.getContractFactory("FixLender");
       await expect(
-        LenderContract.deploy(
+        lenderFactory.deploy(
           ZeroAddress,
           stableAddress,
           bonusAddress,
@@ -83,7 +82,7 @@ describe("Fixed Lender Pool", function () {
         )
       ).to.be.revertedWith("Invalid Admin address");
       await expect(
-        LenderContract.deploy(
+        lenderFactory.deploy(
           admin.address,
           ZeroAddress,
           bonusAddress,
@@ -98,7 +97,7 @@ describe("Fixed Lender Pool", function () {
         )
       ).to.be.revertedWith("Invalid Stable Token address");
       await expect(
-        LenderContract.deploy(
+        lenderFactory.deploy(
           admin.address,
           stableAddress,
           ZeroAddress,
@@ -113,11 +112,10 @@ describe("Fixed Lender Pool", function () {
         )
       ).to.be.revertedWith("Invalid Bonus Token address");
     });
+
     it("Should fail if Dates are invalid", async function () {
-      const currentTime = await now();
-      const LenderContract = await ethers.getContractFactory("FixLender");
       await expect(
-        LenderContract.deploy(
+        lenderFactory.deploy(
           admin.address,
           stableAddress,
           bonusAddress,
@@ -132,7 +130,7 @@ describe("Fixed Lender Pool", function () {
         )
       ).to.be.revertedWith("Invalid Pool Start Date");
       await expect(
-        LenderContract.deploy(
+        lenderFactory.deploy(
           admin.address,
           stableAddress,
           bonusAddress,
@@ -147,11 +145,10 @@ describe("Fixed Lender Pool", function () {
         )
       ).to.be.revertedWith("Invalid Deposit End Date");
     });
+
     it("Should fail if pool period duration is invalid", async function () {
-      const currentTime = await now();
-      const LenderContract = await ethers.getContractFactory("FixLender");
       await expect(
-        LenderContract.deploy(
+        lenderFactory.deploy(
           admin.address,
           stableAddress,
           bonusAddress,
@@ -166,11 +163,10 @@ describe("Fixed Lender Pool", function () {
         )
       ).to.be.revertedWith("Invalid Pool Duration");
     });
+
     it("Should fail if Max. Pool size is less than or equal to Min. Deposit", async function () {
-      const currentTime = await now();
-      const LenderContract = await ethers.getContractFactory("FixLender");
       await expect(
-        LenderContract.deploy(
+        lenderFactory.deploy(
           admin.address,
           stableAddress,
           bonusAddress,
@@ -186,74 +182,51 @@ describe("Fixed Lender Pool", function () {
       ).to.be.revertedWith("Invalid Pool Max. Limit");
     });
   });
+
   describe("Deposit", function () {
     it("Should fail if lender didn't approve the same or higher stable for lender contract before deposit", async function () {
       await expect(
-        lenderContract
-          .connect(lender)
-          .deposit(ethers.utils.parseUnits("1000", StableDecimal))
+        lenderContract.connect(lender).deposit(toStable("1000"))
       ).to.be.revertedWith("ERC20: insufficient allowance");
     });
+
     it("Should deposit 1000 stable tokens", async function () {
-      await stableToken
-        .connect(lender)
-        .approve(
-          lenderContract.address,
-          ethers.utils.parseUnits("1000", StableDecimal)
-        );
-      await expect(
-        lenderContract
-          .connect(lender)
-          .deposit(ethers.utils.parseUnits("1000", StableDecimal))
-      )
+      const amount = await toStable("1000");
+      await stableToken.connect(lender).approve(lenderContract.address, amount);
+      await expect(lenderContract.connect(lender).deposit(amount))
         .to.emit(lenderContract, "Deposited")
-        .withArgs(
-          lender.address,
-          ethers.utils.parseUnits("1000", StableDecimal)
-        );
+        .withArgs(lender.address, amount);
     });
+
     it("Should fail if deposit amount is less than Min. deposit", async function () {
       const deposit = (MinDeposit - 1).toString();
       await stableToken
         .connect(lender)
-        .approve(
-          lenderContract.address,
-          ethers.utils.parseUnits(deposit, StableDecimal)
-        );
+        .approve(lenderContract.address, toStable(deposit));
       await expect(
-        lenderContract
-          .connect(lender)
-          .deposit(ethers.utils.parseUnits(deposit, StableDecimal))
+        lenderContract.connect(lender).deposit(toStable(deposit))
       ).to.be.revertedWith("Amount is less than Min. Deposit");
     });
+
     it("Should fail if deposit amount is Invalid", async function () {
       await expect(
-        lenderContract
-          .connect(lender)
-          .deposit(ethers.utils.parseUnits("0", StableDecimal))
+        lenderContract.connect(lender).deposit(toStable("0"))
       ).to.be.revertedWith("Invalid Amount");
     });
+
     it("Should fail if has passed deposit end date", async function () {
       time.increase(5 * DAY);
       await expect(
-        lenderContract
-          .connect(lender)
-          .deposit(ethers.utils.parseUnits("100", StableDecimal))
+        lenderContract.connect(lender).deposit(toStable("100"))
       ).to.be.revertedWith("Deposit End Date has passed");
     });
+
     it("Should fail if deposit amount + pool size pass the Pool Max. Limit", async function () {
       await stableToken
         .connect(lender)
-        .approve(
-          lenderContract.address,
-          ethers.utils.parseUnits(PoolMaxLimit.toString(), StableDecimal)
-        );
+        .approve(lenderContract.address, toStable(`${PoolMaxLimit}`));
       await expect(
-        lenderContract
-          .connect(lender)
-          .deposit(
-            ethers.utils.parseUnits(PoolMaxLimit.toString(), StableDecimal)
-          )
+        lenderContract.connect(lender).deposit(toStable(`${PoolMaxLimit}`))
       ).to.be.revertedWith("Pool has reached its limit");
     });
   });
