@@ -8,7 +8,7 @@ import "contracts/Lender/Interface/IFixLender.sol";
 
 /**
  * @title Fixed Lender Pool contract
- * @author Mohammad Z. Rad
+ * @author Polytrade
  * @notice Users can deposit in predefined fixed lender pool during deposit period and withdraw their
  * Principal stable amount with its stable and bonus rewards based on APR and Rate
  * @dev The contract is in development stage
@@ -30,22 +30,19 @@ abstract contract FixLender is IFixLender, AccessControl {
     IToken private immutable _bonusToken;
 
     /**
-     * @dev Sets the values for {admin_}, {stableToken_}, {bonusToken_}, {stableApr_}, {bonusRate_},
-     *{bonusRate_}, {poolStartDate_}, {depositEndDate_}, {minDeposit_}, {maxPoolSize_} and {verification_}
-     * @param admin_ is the address of admin
-     * @param stableToken_ is the address of stable Token
-     * @param bonusToken_ is the address of bonus Token
-     * @param stableApr_ is the fixed annual percentage rate for stable tokens that are distributed
-     * after the pool period with 2 decimals
-     * @param bonusRate_ is the fixed bonus token rate per deposited stable token for the pool period with 2 decimals
-     * @param poolStartDate_ is the timestamp of start date of pool that represents start of reward calculations
-     * @param depositEndDate_ is the timestamp of end of depositing
-     * @param poolPeriod_ is the duration of pool in days starts from poolStartDate
-     * @param minDeposit_ is the minimum amount of stable tokens that users should deposit
-     * @param maxPoolSize_ is the maximum amount of tokens that pool can have and after reaching
-     * it stops receiving depsoits
-     * @param verification_ is the verification status for pool, True means kyc is needed and False means
-     *  kyc is not needed
+     * @dev Sets the values for admin, stableToken, bonusToken, stableApr, bonusRate, bonusRate, poolStartDate,
+     * depositEndDate, minDeposit, maxPoolSize and verification
+     * @param admin_ address of admin
+     * @param stableToken_  address of stable Token
+     * @param bonusToken_ address of bonus Token
+     * @param stableApr_ fixed APR for stable tokens, with 2 decimals
+     * @param bonusRate_ fixed bonus rate per deposited stable token, with 2 decimals
+     * @param poolStartDate_ timestamp for start of reward calculations
+     * @param depositEndDate_ timestamp for the end of depositing
+     * @param poolPeriod_ duration of pool in days, starting from poolStartDate
+     * @param minDeposit_ minimum deposit amount for users
+     * @param maxPoolSize_ maximum tokens to deposit in pool, after reaching contract stops receiving deposit
+     * @param verification_ verification status for pool(True = KYC required, False = KYC not required)
      */
     constructor(
         address admin_,
