@@ -26,8 +26,11 @@ describe("Fixed Lender Pool", function () {
   let currentTime;
 
   beforeEach(async function () {
-    [admin, lender] = await ethers.getSigners();
     currentTime = await now();
+  });
+
+  before(async function () {
+    [admin, lender] = await ethers.getSigners();
     LenderFactory = await ethers.getContractFactory("FixLender");
     const StableToken = await ethers.getContractFactory("Token");
     stableToken = await StableToken.connect(lender).deploy(
@@ -46,25 +49,11 @@ describe("Fixed Lender Pool", function () {
     );
     await bonusToken.deployed();
     bonusAddress = bonusToken.address;
-    lenderContract = await LenderFactory.deploy(
-      admin.address,
-      stableAddress,
-      bonusAddress,
-      SampleAPR,
-      SampleRate,
-      currentTime + DAY,
-      currentTime + 3 * DAY,
-      SamplePeriod,
-      MinDeposit,
-      PoolMaxLimit,
-      true
-    );
-    await lenderContract.deployed();
   });
 
   describe("Constructor", function () {
     it("Should deploy lender successfully", async function () {
-      await LenderFactory.deploy(
+      lenderContract = await LenderFactory.deploy(
         admin.address,
         stableAddress,
         bonusAddress,
@@ -77,9 +66,10 @@ describe("Fixed Lender Pool", function () {
         PoolMaxLimit,
         true
       );
+      await lenderContract.deployed();
     });
 
-    it("Should fail if any address is zero", async function () {
+    it("Should fail if admin address is zero", async function () {
       await expect(
         LenderFactory.deploy(
           ZeroAddress,
@@ -95,7 +85,9 @@ describe("Fixed Lender Pool", function () {
           true
         )
       ).to.be.revertedWith("Invalid Admin address");
+    });
 
+    it("Should fail if stable address is zero", async function () {
       await expect(
         LenderFactory.deploy(
           admin.address,
@@ -111,7 +103,9 @@ describe("Fixed Lender Pool", function () {
           true
         )
       ).to.be.revertedWith("Invalid Stable Token address");
+    });
 
+    it("Should fail if bonus address is zero", async function () {
       await expect(
         LenderFactory.deploy(
           admin.address,
@@ -129,7 +123,7 @@ describe("Fixed Lender Pool", function () {
       ).to.be.revertedWith("Invalid Bonus Token address");
     });
 
-    it("Should fail if Dates are invalid", async function () {
+    it("Should fail if Pool Start Date is invalid", async function () {
       await expect(
         LenderFactory.deploy(
           admin.address,
@@ -145,7 +139,9 @@ describe("Fixed Lender Pool", function () {
           true
         )
       ).to.be.revertedWith("Invalid Pool Start Date");
+    });
 
+    it("Should fail if Deposit End Date is invalid", async function () {
       await expect(
         LenderFactory.deploy(
           admin.address,
