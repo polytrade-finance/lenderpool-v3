@@ -92,7 +92,7 @@ contract FixLender is IFixLender, AccessControl {
         );
         require(amount >= _minDeposit, "Amount is less than Min. Deposit");
         require(
-            block.timestamp <= _depositEndDate,
+            block.timestamp < _depositEndDate,
             "Deposit End Date has passed"
         );
         poolSize += amount;
