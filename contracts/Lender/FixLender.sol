@@ -117,6 +117,10 @@ contract FixLender is IFixLender, AccessControl {
         emit Claimed(msg.sender, claimableAmount);
     }
 
+    /**
+     * @dev Calculates the bonus reward based on _bonusRate for all msg.sender deposits
+     * @dev Rewards are only applicable for the pool period duration
+     */
     function _calculateBonus() private returns (uint256) {
         uint256 claimableAmount;
         uint256 diff;
