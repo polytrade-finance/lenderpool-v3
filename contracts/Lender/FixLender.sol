@@ -107,11 +107,11 @@ contract FixLender is IFixLender, AccessControl {
      * @dev See {IFixLender-claim}.
      */
     function claim() external {
-        require(block.timestamp > _poolStartDate, "Pool has not started yet");
         require(
-            lenders[msg.sender][0].amount > 0,
+            lenders[msg.sender].length > 0,
             "You have not deposited anything"
         );
+        require(block.timestamp > _poolStartDate, "Pool has not started yet");
         uint256 claimableAmount = _calculateBonus();
         _bonusToken.safeTransfer(msg.sender, claimableAmount);
         emit Claimed(msg.sender, claimableAmount);
@@ -120,6 +120,7 @@ contract FixLender is IFixLender, AccessControl {
     /**
      * @dev Calculates the bonus reward based on _bonusRate for all msg.sender deposits
      * @dev Rewards are only applicable for the pool period duration
+     * @dev Updates lastClaimTime of each deposit
      */
     function _calculateBonus() private returns (uint256) {
         uint256 claimableAmount;
