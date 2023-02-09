@@ -87,12 +87,12 @@ contract FixLender is IFixLender, AccessControl {
      */
     function deposit(uint256 amount) external {
         require(
-            _poolMaxLimit > poolSize + amount,
+            _poolMaxLimit >= poolSize + amount,
             "Pool has reached its limit"
         );
         require(amount >= _minDeposit, "Amount is less than Min. Deposit");
         require(
-            block.timestamp < _depositEndDate,
+            block.timestamp <= _depositEndDate,
             "Deposit End Date has passed"
         );
         poolSize += amount;

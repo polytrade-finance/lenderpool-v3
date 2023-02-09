@@ -123,7 +123,7 @@ describe("Fixed Lender Pool", function () {
       ).to.be.revertedWith("Invalid Bonus Token address");
     });
 
-    it("Should fail if Pool Start Date is invalid", async function () {
+    it("Should fail if Pool Start Date is less than currentTime", async function () {
       await expect(
         LenderFactory.deploy(
           admin.address,
@@ -141,7 +141,25 @@ describe("Fixed Lender Pool", function () {
       ).to.be.revertedWith("Invalid Pool Start Date");
     });
 
-    it("Should fail if Deposit End Date is invalid", async function () {
+    it("Should fail if Pool Start Date is equal to currentTime", async function () {
+      await expect(
+        LenderFactory.deploy(
+          admin.address,
+          stableAddress,
+          bonusAddress,
+          SampleAPR,
+          SampleRate,
+          currentTime,
+          currentTime + 3 * DAY,
+          SamplePeriod,
+          MinDeposit,
+          PoolMaxLimit,
+          true
+        )
+      ).to.be.revertedWith("Invalid Pool Start Date");
+    });
+
+    it("Should fail if Deposit End Date is less than currentTime", async function () {
       await expect(
         LenderFactory.deploy(
           admin.address,
@@ -151,6 +169,24 @@ describe("Fixed Lender Pool", function () {
           SampleRate,
           currentTime + DAY,
           currentTime - 3 * DAY,
+          SamplePeriod,
+          MinDeposit,
+          PoolMaxLimit,
+          true
+        )
+      ).to.be.revertedWith("Invalid Deposit End Date");
+    });
+
+    it("Should fail if Deposit End Date is equal to currentTime", async function () {
+      await expect(
+        LenderFactory.deploy(
+          admin.address,
+          stableAddress,
+          bonusAddress,
+          SampleAPR,
+          SampleRate,
+          currentTime + DAY,
+          currentTime,
           SamplePeriod,
           MinDeposit,
           PoolMaxLimit,
@@ -177,7 +213,25 @@ describe("Fixed Lender Pool", function () {
       ).to.be.revertedWith("Invalid Pool Duration");
     });
 
-    it("Should fail if Max. Pool size is less than or equal to Min. Deposit", async function () {
+    it("Should fail if Max. Pool size is less than Min. Deposit", async function () {
+      await expect(
+        LenderFactory.deploy(
+          admin.address,
+          stableAddress,
+          bonusAddress,
+          SampleAPR,
+          SampleRate,
+          currentTime + DAY,
+          currentTime + 3 * DAY,
+          SamplePeriod,
+          MinDeposit,
+          MinDeposit - 1,
+          true
+        )
+      ).to.be.revertedWith("Invalid Pool Max. Limit");
+    });
+
+    it("Should fail if Max. Pool size is equal to Min. Deposit", async function () {
       await expect(
         LenderFactory.deploy(
           admin.address,
@@ -222,7 +276,7 @@ describe("Fixed Lender Pool", function () {
     });
 
     it("Should fail if has passed deposit end date", async function () {
-      time.increase(5 * DAY);
+      time.increase(3 * DAY);
       await expect(
         lenderContract.connect(lender).deposit(toStable("100"))
       ).to.be.revertedWith("Deposit End Date has passed");
