@@ -12,7 +12,7 @@ const {
   MinDeposit,
   PoolMaxLimit,
 } = require("./constants/constants.helpers");
-const { now, toStable } = require("./helpers");
+const { now, toStable, toBonus, fromBonus } = require("./helpers");
 
 describe("Fixed Lender Pool", function () {
   let admin;
@@ -33,20 +33,12 @@ describe("Fixed Lender Pool", function () {
     [admin, lender] = await ethers.getSigners();
     LenderFactory = await ethers.getContractFactory("FixLender");
     const StableToken = await ethers.getContractFactory("Token");
-    stableToken = await StableToken.connect(lender).deploy(
-      "Stable",
-      "STB",
-      StableDecimal
-    );
+    stableToken = await StableToken.deploy("Stable", "STB", StableDecimal);
     await stableToken.deployed();
     stableAddress = stableToken.address;
 
     const BonusToken = await ethers.getContractFactory("Token");
-    bonusToken = await BonusToken.connect(lender).deploy(
-      "Bonus",
-      "BNS",
-      BonusDecimal
-    );
+    bonusToken = await BonusToken.deploy("Bonus", "BNS", BonusDecimal);
     await bonusToken.deployed();
     bonusAddress = bonusToken.address;
   });
@@ -257,8 +249,19 @@ describe("Fixed Lender Pool", function () {
       ).to.be.revertedWith("ERC20: insufficient allowance");
     });
 
-    it("Should deposit 1000 stable tokens", async function () {
+    it("Should deposit 1000 stable tokens before starting", async function () {
       const amount = await toStable("1000");
+      await stableToken.transfer(lender.address, amount);
+      await stableToken.connect(lender).approve(lenderContract.address, amount);
+      await expect(lenderContract.connect(lender).deposit(amount))
+        .to.emit(lenderContract, "Deposited")
+        .withArgs(lender.address, amount);
+    });
+
+    it("Should deposit 1000 stable tokens after starting before deposit end date", async function () {
+      await time.increase(2 * DAY);
+      const amount = await toStable("1000");
+      await stableToken.transfer(lender.address, amount);
       await stableToken.connect(lender).approve(lenderContract.address, amount);
       await expect(lenderContract.connect(lender).deposit(amount))
         .to.emit(lenderContract, "Deposited")
@@ -276,7 +279,7 @@ describe("Fixed Lender Pool", function () {
     });
 
     it("Should fail if has passed deposit end date", async function () {
-      time.increase(3 * DAY);
+      await time.increase(DAY);
       await expect(
         lenderContract.connect(lender).deposit(toStable("100"))
       ).to.be.revertedWith("Deposit End Date has passed");
@@ -289,6 +292,139 @@ describe("Fixed Lender Pool", function () {
       await expect(
         lenderContract.connect(lender).deposit(toStable(`${PoolMaxLimit}`))
       ).to.be.revertedWith("Pool has reached its limit");
+    });
+  });
+  describe("Claim Single Deposit", function () {
+    before(async function () {
+      lenderContract = await LenderFactory.deploy(
+        admin.address,
+        stableAddress,
+        bonusAddress,
+        SampleAPR,
+        SampleRate,
+        currentTime + DAY,
+        currentTime + 3 * DAY,
+        SamplePeriod,
+        MinDeposit,
+        PoolMaxLimit,
+        true
+      );
+      await lenderContract.deployed();
+    });
+
+    it("Should fail if there is no deposit", async function () {
+      await expect(lenderContract.connect(lender).claim()).to.be.revertedWith(
+        "You have not deposited anything"
+      );
+    });
+
+    it("Should fail if claim before starting pool", async function () {
+      const amount = await toStable("1000");
+      await stableToken.transfer(lender.address, amount);
+      await stableToken.connect(lender).approve(lenderContract.address, amount);
+      await expect(lenderContract.connect(lender).deposit(amount))
+        .to.emit(lenderContract, "Deposited")
+        .withArgs(lender.address, amount);
+
+      await expect(lenderContract.connect(lender).claim()).to.be.revertedWith(
+        "Pool has not started yet"
+      );
+    });
+
+    it("Should deposit 1000 stable before pool start date and claim a 500 bonus after half of the period passed from starting pool", async function () {
+      const amount = await toBonus("1000");
+      await bonusToken.transfer(lenderContract.address, amount);
+      // increase to Pool Start Date
+      await time.increase(DAY);
+      const Period = SamplePeriod * DAY;
+      // half of period passed
+      const passedPeriod = Period / 2;
+      await time.increase(passedPeriod);
+      // SampleRate is 100 which is 1.00
+      const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / Period;
+      await lenderContract.connect(lender).claim();
+      const bonusBalance = await bonusToken.balanceOf(lender.address);
+      const actualBonus = parseFloat(await fromBonus(bonusBalance));
+      expect(actualBonus).to.be.within(expectedBonus, expectedBonus + 0.01);
+    });
+
+    it("Should claim rest of 500 bonus after pool end date", async function () {
+      // increase to after Pool end Date
+      await time.increase(46 * DAY);
+      const Period = SamplePeriod * DAY;
+      // half of period passed
+      const passedPeriod = Period / 2;
+      // SampleRate is 100 which is 1.00
+      const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / Period;
+      const beforeClaim = await bonusToken.balanceOf(lender.address);
+      await lenderContract.connect(lender).claim();
+      const afterClaim = await bonusToken.balanceOf(lender.address);
+      const bonusBalance = afterClaim.sub(beforeClaim);
+      const actualBonus = parseFloat(await fromBonus(bonusBalance));
+      expect(actualBonus).to.be.within(expectedBonus - 0.01, expectedBonus);
+    });
+  });
+
+  describe("Claim Multiple Deposit", function () {
+    before(async function () {
+      currentTime = await now();
+      lenderContract = await LenderFactory.deploy(
+        admin.address,
+        stableAddress,
+        bonusAddress,
+        SampleAPR,
+        SampleRate,
+        currentTime + DAY,
+        currentTime + 10 * DAY,
+        SamplePeriod,
+        MinDeposit,
+        PoolMaxLimit,
+        true
+      );
+      await lenderContract.deployed();
+    });
+
+    it("Should deposit 100 stable for 10 times and claim each 10 days till end of pool period", async function () {
+      const amount = await toStable("100");
+      const bonusAmount = await toBonus("1000");
+      await stableToken.transfer(lender.address, 10 * amount);
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
+      await stableToken
+        .connect(lender)
+        .approve(lenderContract.address, 10 * amount);
+      for (let i = 0; i < 10; i++) {
+        await expect(lenderContract.connect(lender).deposit(amount))
+          .to.emit(lenderContract, "Deposited")
+          .withArgs(lender.address, amount);
+      }
+      // Increase to pool start date
+      await time.increase(DAY);
+      const Period = SamplePeriod * DAY;
+      // half of period passed
+      const passedPeriod = 10 * DAY;
+      const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / Period;
+      for (let i = 0; i < 9; i++) {
+        await time.increase(passedPeriod);
+        const beforeClaim = await bonusToken.balanceOf(lender.address);
+        await lenderContract.connect(lender).claim();
+        const afterClaim = await bonusToken.balanceOf(lender.address);
+        const bonusBalance = afterClaim.sub(beforeClaim);
+        const actualBonus = parseFloat(await fromBonus(bonusBalance));
+        expect(actualBonus).to.be.within(
+          expectedBonus - 0.01,
+          expectedBonus + 0.01
+        );
+      }
+    });
+
+    it("Should claim nothing after claiming all bonuses till pool end date", async function () {
+      const expectedBonus = 0;
+      const beforeClaim = await bonusToken.balanceOf(lender.address);
+      await lenderContract.connect(lender).claim();
+      const afterClaim = await bonusToken.balanceOf(lender.address);
+      const bonusBalance = afterClaim.sub(beforeClaim);
+      const actualBonus = parseFloat(await fromBonus(bonusBalance));
+      expect(actualBonus).to.be.equal(expectedBonus);
     });
   });
 });
