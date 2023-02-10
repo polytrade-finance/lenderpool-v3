@@ -96,9 +96,10 @@ contract FixLender is IFixLender, AccessControl {
             "Deposit End Date has passed"
         );
         poolSize += amount;
-        lenders[msg.sender].push(
-            Deposit(amount, block.timestamp, block.timestamp)
-        );
+        uint256 startDate = block.timestamp > _poolStartDate
+            ? block.timestamp
+            : _poolStartDate;
+        lenders[msg.sender].push(Deposit(amount, startDate, startDate));
         _stableToken.safeTransferFrom(msg.sender, address(this), amount);
         emit Deposited(msg.sender, amount);
     }
@@ -108,7 +109,7 @@ contract FixLender is IFixLender, AccessControl {
      */
     function claim() external {
         require(
-            lenders[msg.sender].length > 0,
+            lenders[msg.sender].length != 0,
             "You have not deposited anything"
         );
         require(block.timestamp > _poolStartDate, "Pool has not started yet");
