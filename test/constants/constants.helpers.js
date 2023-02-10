@@ -7,7 +7,7 @@ const StableDecimal = 6;
 const BonusDecimal = 18;
 const SamplePeriod = 90; // 90 days
 const MinDeposit = 100;
-const MaxPoolSize = 1000;
+const PoolMaxLimit = 10000;
 const DAY = 1 * 60 * 60 * 24;
 const YEAR = 365 * 60 * 60 * 24;
 module.exports = {
@@ -18,7 +18,7 @@ module.exports = {
   SampleRate,
   SamplePeriod,
   MinDeposit,
-  MaxPoolSize,
+  PoolMaxLimit,
   DAY,
   YEAR,
 };
