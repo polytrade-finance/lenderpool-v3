@@ -302,6 +302,19 @@ describe("Fixed Lender Pool", function () {
       ).to.be.revertedWith("Amount is less than Min. Deposit");
     });
 
+    it("Should not increase pool Size if stable tokens transfer directly to contract", async function () {
+      const amount = await toStable("100");
+      await stableToken.transfer(
+        lenderContract.address,
+        toStable(`${PoolMaxLimit}`)
+      );
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, amount);
+      await stableToken.transfer(addresses[1], amount);
+      await lenderContract.connect(accounts[1]).deposit(amount);
+    });
+
     it("Should fail if has passed deposit end date", async function () {
       await time.increase(DAY);
       await expect(
