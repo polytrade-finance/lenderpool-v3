@@ -68,6 +68,7 @@ contract FixLender is IFixLender, AccessControl {
         require(depositEndDate_ > block.timestamp, "Invalid Deposit End Date");
         require(poolPeriod_ != 0, "Invalid Pool Duration");
         require(poolMaxLimit_ > minDeposit_, "Invalid Pool Max. Limit");
+        require(bonusRate_ <= 10000, "Invalid Bonus Rate");
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
         _stableToken = IToken(stableToken_);
         _bonusToken = IToken(bonusToken_);
