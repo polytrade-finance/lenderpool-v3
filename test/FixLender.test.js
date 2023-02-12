@@ -313,9 +313,9 @@ describe("Fixed Lender Pool", function () {
     });
 
     it("Should fail if there is no deposit", async function () {
-      await expect(lenderContract.connect(lender).claim()).to.be.revertedWith(
-        "You have not deposited anything"
-      );
+      await expect(
+        lenderContract.connect(lender).claimBonus()
+      ).to.be.revertedWith("You have not deposited anything");
     });
 
     it("Should fail if claim before starting pool", async function () {
@@ -326,9 +326,9 @@ describe("Fixed Lender Pool", function () {
         .to.emit(lenderContract, "Deposited")
         .withArgs(lender.address, amount);
 
-      await expect(lenderContract.connect(lender).claim()).to.be.revertedWith(
-        "Pool has not started yet"
-      );
+      await expect(
+        lenderContract.connect(lender).claimBonus()
+      ).to.be.revertedWith("Pool has not started yet");
     });
 
     it("Should deposit 1000 stable before pool start date and claim a 500 bonus after half of the period passed from starting pool", async function () {
@@ -342,7 +342,7 @@ describe("Fixed Lender Pool", function () {
       await time.increase(passedPeriod);
       // SampleRate is 100 which is 1.00
       const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / Period;
-      await lenderContract.connect(lender).claim();
+      await lenderContract.connect(lender).claimBonus();
       const bonusBalance = await bonusToken.balanceOf(lender.address);
       const actualBonus = parseFloat(await fromBonus(bonusBalance));
       expect(actualBonus).to.be.within(expectedBonus, expectedBonus + 0.01);
@@ -357,7 +357,7 @@ describe("Fixed Lender Pool", function () {
       // SampleRate is 100 which is 1.00
       const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / Period;
       const beforeClaim = await bonusToken.balanceOf(lender.address);
-      await lenderContract.connect(lender).claim();
+      await lenderContract.connect(lender).claimBonus();
       const afterClaim = await bonusToken.balanceOf(lender.address);
       const bonusBalance = afterClaim.sub(beforeClaim);
       const actualBonus = parseFloat(await fromBonus(bonusBalance));
@@ -406,7 +406,7 @@ describe("Fixed Lender Pool", function () {
       for (let i = 0; i < 9; i++) {
         await time.increase(passedPeriod);
         const beforeClaim = await bonusToken.balanceOf(lender.address);
-        await lenderContract.connect(lender).claim();
+        await lenderContract.connect(lender).claimBonus();
         const afterClaim = await bonusToken.balanceOf(lender.address);
         const bonusBalance = afterClaim.sub(beforeClaim);
         const actualBonus = parseFloat(await fromBonus(bonusBalance));
@@ -420,7 +420,7 @@ describe("Fixed Lender Pool", function () {
     it("Should claim nothing after claiming all bonuses till pool end date", async function () {
       const expectedBonus = 0;
       const beforeClaim = await bonusToken.balanceOf(lender.address);
-      await lenderContract.connect(lender).claim();
+      await lenderContract.connect(lender).claimBonus();
       const afterClaim = await bonusToken.balanceOf(lender.address);
       const bonusBalance = afterClaim.sub(beforeClaim);
       const actualBonus = parseFloat(await fromBonus(bonusBalance));

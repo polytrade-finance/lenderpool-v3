@@ -33,7 +33,7 @@ interface IFixLender {
      * @param lender is the address of the 'lender'
      * @param bonusReward is the accumulated Bonus rewards lender received based on the Rate
      */
-    event Claimed(address indexed lender, uint256 bonusReward);
+    event BonusClaimed(address indexed lender, uint256 bonusReward);
 
     /**
      * @notice Emits when an unverified lender withdraws the principal amount after given access from owner
@@ -80,7 +80,7 @@ interface IFixLender {
      * - 'LenderPool' should have Bonus tokens more than or equal to lender accumulated bonus rewards
      * Emits {Claimed} event
      */
-    function claim() external;
+    function claimBonus() external;
 
     /**
      * @notice Withdraws principal deposited tokens + Stable rewards + remaining Bonus rewards for locking period
