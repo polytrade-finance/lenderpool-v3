@@ -25,6 +25,7 @@ contract FixLender is IFixLender, AccessControl {
     uint256 private immutable _poolStartDate;
     uint256 private immutable _depositEndDate;
     uint256 private immutable _poolPeriod;
+    uint256 private immutable _poolEndDate;
     uint256 private immutable _minDeposit;
     uint256 private immutable _poolMaxLimit;
     bool private immutable _verificationStatus;
@@ -80,6 +81,7 @@ contract FixLender is IFixLender, AccessControl {
         _minDeposit = minDeposit_ * (10 ** _stableDecimal);
         _poolMaxLimit = poolMaxLimit_ * (10 ** _stableDecimal);
         _verificationStatus = verification_;
+        _poolEndDate = _poolPeriod + _poolStartDate;
     }
 
     /**
@@ -113,7 +115,8 @@ contract FixLender is IFixLender, AccessControl {
             "You have not deposited anything"
         );
         require(block.timestamp > _poolStartDate, "Pool has not started yet");
-        uint256 claimableAmount = _calculateBonus();
+        uint256 claimableAmount = _calculateBonus(msg.sender);
+        _updateClaimDate();
         _bonusToken.safeTransfer(msg.sender, claimableAmount);
         emit BonusClaimed(msg.sender, claimableAmount);
     }
@@ -123,19 +126,29 @@ contract FixLender is IFixLender, AccessControl {
      * @dev Rewards are only applicable for the pool period duration
      * @dev Updates lastClaimTime of each deposit
      */
-    function _calculateBonus() private returns (uint256) {
+    function _updateClaimDate() private {
+        for (uint256 i = 0; i < lenders[msg.sender].length; i++) {
+            block.timestamp < _poolEndDate
+                ? lenders[msg.sender][i].lastClaimDate = block.timestamp
+                : lenders[msg.sender][i].lastClaimDate = _poolEndDate;
+        }
+    }
+
+    /**
+     * @dev Calculates the bonus reward based on _bonusRate for all msg.sender deposits
+     * @dev Rewards are only applicable for the pool period duration
+     * @dev Updates lastClaimTime of each deposit
+     */
+    function _calculateBonus(address _lender) private view returns (uint256) {
         uint256 claimableAmount;
         uint256 diff;
-        uint256 poolEndDate = _poolPeriod + _poolStartDate;
-        for (uint256 i = 0; i < lenders[msg.sender].length; i++) {
-            uint256 amount = lenders[msg.sender][i].amount;
-            uint256 lastClaimTime = lenders[msg.sender][i].lastClaimDate;
-            if (block.timestamp < poolEndDate) {
+        for (uint256 i = 0; i < lenders[_lender].length; i++) {
+            uint256 amount = lenders[_lender][i].amount;
+            uint256 lastClaimTime = lenders[_lender][i].lastClaimDate;
+            if (block.timestamp < _poolEndDate) {
                 diff = block.timestamp - lastClaimTime;
-                lenders[msg.sender][i].lastClaimDate = block.timestamp;
             } else {
-                diff = poolEndDate - lastClaimTime;
-                lenders[msg.sender][i].lastClaimDate = poolEndDate;
+                diff = _poolEndDate - lastClaimTime;
             }
             claimableAmount +=
                 ((amount * diff * _bonusRate) / 1E2) /
