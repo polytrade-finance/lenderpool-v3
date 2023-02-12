@@ -330,7 +330,54 @@ describe("Fixed Lender Pool", function () {
         lenderContract.connect(accounts[1]).deposit(toStable(`${PoolMaxLimit}`))
       ).to.be.revertedWith("Pool has reached its limit");
     });
+
+    it("Should deposit 1 (Min. possible amount) stable for 10 times and claim each 10 days till end of pool period", async function () {
+      lenderContract = await LenderFactory.deploy(
+        addresses[0],
+        stableAddress,
+        bonusAddress,
+        SampleAPR,
+        SampleRate,
+        currentTime + DAY,
+        currentTime + 10 * DAY,
+        SamplePeriod,
+        1,
+        PoolMaxLimit,
+        true
+      );
+      await lenderContract.deployed();
+      const amount = await toStable("1");
+      const bonusAmount = await toBonus("10");
+      await stableToken.transfer(addresses[1], 10 * amount);
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, 10 * amount);
+      for (let i = 0; i < 10; i++) {
+        await expect(lenderContract.connect(accounts[1]).deposit(amount))
+          .to.emit(lenderContract, "Deposited")
+          .withArgs(addresses[1], amount);
+      }
+      // Increase to pool start date
+      await time.increase(DAY);
+      const Period = SamplePeriod * DAY;
+      const passedPeriod = 10 * DAY;
+      const expectedBonus = (10 * passedPeriod * (SampleRate / 100)) / Period;
+      for (let i = 0; i < 9; i++) {
+        await time.increase(passedPeriod);
+        const beforeClaim = await bonusToken.balanceOf(addresses[1]);
+        await lenderContract.connect(accounts[1]).claimBonus();
+        const afterClaim = await bonusToken.balanceOf(addresses[1]);
+        const bonusBalance = afterClaim.sub(beforeClaim);
+        const actualBonus = parseFloat(await fromBonus(bonusBalance));
+        expect(actualBonus).to.be.within(
+          expectedBonus - 0.0001,
+          expectedBonus + 0.0001
+        );
+      }
+    });
   });
+
   describe("Claim Single Deposit", function () {
     before(async function () {
       currentTime = await now();
