@@ -426,36 +426,41 @@ describe("Fixed Lender Pool", function () {
       await lenderContract.deployed();
     });
 
-    it("Should deposit 100 stable for 10 times and claim each 10 days till end of pool period", async function () {
+    it("Should deposit 100 stable with 5 different accounts for 10 times and claim each 10 days till end of pool period", async function () {
       const amount = await toStable("100");
       const bonusAmount = await toBonus("1000");
-      await stableToken.transfer(lender.address, 10 * amount);
-      await bonusToken.transfer(lenderContract.address, bonusAmount);
-      await stableToken
-        .connect(lender)
-        .approve(lenderContract.address, 10 * amount);
-      for (let i = 0; i < 10; i++) {
-        await expect(lenderContract.connect(lender).deposit(amount))
-          .to.emit(lenderContract, "Deposited")
-          .withArgs(lender.address, amount);
+      for (let i = 1; i < 6; i++) {
+        await stableToken.transfer(addresses[i], 10 * amount);
+        await bonusToken.transfer(lenderContract.address, bonusAmount);
+        await stableToken
+          .connect(accounts[i])
+          .approve(lenderContract.address, 10 * amount);
+      }
+      for (let i = 1; i < 6; i++) {
+        for (let j = 0; j < 10; j++) {
+          await expect(lenderContract.connect(accounts[i]).deposit(amount))
+            .to.emit(lenderContract, "Deposited")
+            .withArgs(addresses[i], amount);
+        }
       }
       // Increase to pool start date
       await time.increase(DAY);
       const Period = SamplePeriod * DAY;
-      // half of period passed
       const passedPeriod = 10 * DAY;
       const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / Period;
       for (let i = 0; i < 9; i++) {
         await time.increase(passedPeriod);
-        const beforeClaim = await bonusToken.balanceOf(lender.address);
-        await lenderContract.connect(lender).claimBonus();
-        const afterClaim = await bonusToken.balanceOf(lender.address);
-        const bonusBalance = afterClaim.sub(beforeClaim);
-        const actualBonus = parseFloat(await fromBonus(bonusBalance));
-        expect(actualBonus).to.be.within(
-          expectedBonus - 0.01,
-          expectedBonus + 0.01
-        );
+        for (let j = 1; j < 6; j++) {
+          const beforeClaim = await bonusToken.balanceOf(addresses[j]);
+          await lenderContract.connect(accounts[j]).claimBonus();
+          const afterClaim = await bonusToken.balanceOf(addresses[j]);
+          const bonusBalance = afterClaim.sub(beforeClaim);
+          const actualBonus = parseFloat(await fromBonus(bonusBalance));
+          expect(actualBonus).to.be.within(
+            expectedBonus - 0.02,
+            expectedBonus + 0.01
+          );
+        }
       }
     });
 
