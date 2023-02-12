@@ -150,10 +150,22 @@ contract FixLender is IFixLender, AccessControl {
             } else {
                 diff = _poolEndDate - lastClaimTime;
             }
-            claimableAmount +=
-                ((amount * diff * _bonusRate) / 1E2) /
-                _poolPeriod;
+            claimableAmount += _bonusFormula(
+                amount,
+                diff,
+                _bonusRate,
+                _poolPeriod
+            );
         }
         return claimableAmount;
+    }
+
+    function _bonusFormula(
+        uint256 amount,
+        uint256 duration,
+        uint256 rate,
+        uint256 poolPeriod
+    ) private pure returns (uint256) {
+        return ((amount * duration * rate) / 1E2) / poolPeriod;
     }
 }
