@@ -15,8 +15,8 @@ const {
 const { now, toStable, toBonus, fromBonus } = require("./helpers");
 
 describe("Fixed Lender Pool", function () {
-  let admin;
-  let lender;
+  let accounts;
+  let addresses;
   let lenderContract;
   let LenderFactory;
   let stableToken;
@@ -30,7 +30,8 @@ describe("Fixed Lender Pool", function () {
   });
 
   before(async function () {
-    [admin, lender] = await ethers.getSigners();
+    accounts = await ethers.getSigners();
+    addresses = accounts.map((account) => account.address);
     LenderFactory = await ethers.getContractFactory("FixLender");
     const StableToken = await ethers.getContractFactory("Token");
     stableToken = await StableToken.deploy("Stable", "STB", StableDecimal);
@@ -46,7 +47,7 @@ describe("Fixed Lender Pool", function () {
   describe("Constructor", function () {
     it("Should deploy lender successfully", async function () {
       lenderContract = await LenderFactory.deploy(
-        admin.address,
+        addresses[0],
         stableAddress,
         bonusAddress,
         SampleAPR,
@@ -82,7 +83,7 @@ describe("Fixed Lender Pool", function () {
     it("Should fail if stable address is zero", async function () {
       await expect(
         LenderFactory.deploy(
-          admin.address,
+          addresses[0],
           ZeroAddress,
           bonusAddress,
           SampleAPR,
@@ -100,7 +101,7 @@ describe("Fixed Lender Pool", function () {
     it("Should fail if bonus address is zero", async function () {
       await expect(
         LenderFactory.deploy(
-          admin.address,
+          addresses[0],
           stableAddress,
           ZeroAddress,
           SampleAPR,
@@ -118,7 +119,7 @@ describe("Fixed Lender Pool", function () {
     it("Should fail if Pool Start Date is less than currentTime", async function () {
       await expect(
         LenderFactory.deploy(
-          admin.address,
+          addresses[0],
           stableAddress,
           bonusAddress,
           SampleAPR,
@@ -136,7 +137,7 @@ describe("Fixed Lender Pool", function () {
     it("Should fail if Pool Start Date is equal to currentTime", async function () {
       await expect(
         LenderFactory.deploy(
-          admin.address,
+          addresses[0],
           stableAddress,
           bonusAddress,
           SampleAPR,
@@ -154,7 +155,7 @@ describe("Fixed Lender Pool", function () {
     it("Should fail if Deposit End Date is less than currentTime", async function () {
       await expect(
         LenderFactory.deploy(
-          admin.address,
+          addresses[0],
           stableAddress,
           bonusAddress,
           SampleAPR,
@@ -172,7 +173,7 @@ describe("Fixed Lender Pool", function () {
     it("Should fail if Deposit End Date is equal to currentTime", async function () {
       await expect(
         LenderFactory.deploy(
-          admin.address,
+          addresses[0],
           stableAddress,
           bonusAddress,
           SampleAPR,
@@ -190,7 +191,7 @@ describe("Fixed Lender Pool", function () {
     it("Should fail if pool period duration is invalid", async function () {
       await expect(
         LenderFactory.deploy(
-          admin.address,
+          addresses[0],
           stableAddress,
           bonusAddress,
           SampleAPR,
@@ -208,7 +209,7 @@ describe("Fixed Lender Pool", function () {
     it("Should fail if Max. Pool size is less than Min. Deposit", async function () {
       await expect(
         LenderFactory.deploy(
-          admin.address,
+          addresses[0],
           stableAddress,
           bonusAddress,
           SampleAPR,
@@ -226,7 +227,7 @@ describe("Fixed Lender Pool", function () {
     it("Should fail if Max. Pool size is equal to Min. Deposit", async function () {
       await expect(
         LenderFactory.deploy(
-          admin.address,
+          addresses[0],
           stableAddress,
           bonusAddress,
           SampleAPR,
@@ -240,64 +241,88 @@ describe("Fixed Lender Pool", function () {
         )
       ).to.be.revertedWith("Invalid Pool Max. Limit");
     });
+
+    it("Should fail if Bonus Rate is more than 100 per stable token", async function () {
+      // 10001 = 100.01 rate
+      await expect(
+        LenderFactory.deploy(
+          addresses[0],
+          stableAddress,
+          bonusAddress,
+          SampleAPR,
+          10001,
+          currentTime + DAY,
+          currentTime + 3 * DAY,
+          SamplePeriod,
+          MinDeposit,
+          PoolMaxLimit,
+          true
+        )
+      ).to.be.revertedWith("Invalid Bonus Rate");
+    });
   });
 
   describe("Deposit", function () {
     it("Should fail if lender didn't approve the same or higher stable for lender contract before deposit", async function () {
       await expect(
-        lenderContract.connect(lender).deposit(toStable("1000"))
+        lenderContract.connect(accounts[1]).deposit(toStable("1000"))
       ).to.be.revertedWith("ERC20: insufficient allowance");
     });
 
     it("Should deposit 1000 stable tokens before starting", async function () {
       const amount = await toStable("1000");
-      await stableToken.transfer(lender.address, amount);
-      await stableToken.connect(lender).approve(lenderContract.address, amount);
-      await expect(lenderContract.connect(lender).deposit(amount))
+      await stableToken.transfer(addresses[1], amount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, amount);
+      await expect(lenderContract.connect(accounts[1]).deposit(amount))
         .to.emit(lenderContract, "Deposited")
-        .withArgs(lender.address, amount);
+        .withArgs(addresses[1], amount);
     });
 
     it("Should deposit 1000 stable tokens after starting before deposit end date", async function () {
       await time.increase(2 * DAY);
       const amount = await toStable("1000");
-      await stableToken.transfer(lender.address, amount);
-      await stableToken.connect(lender).approve(lenderContract.address, amount);
-      await expect(lenderContract.connect(lender).deposit(amount))
+      await stableToken.transfer(addresses[1], amount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, amount);
+      await expect(lenderContract.connect(accounts[1]).deposit(amount))
         .to.emit(lenderContract, "Deposited")
-        .withArgs(lender.address, amount);
+        .withArgs(addresses[1], amount);
     });
 
     it("Should fail if deposit amount is less than Min. deposit", async function () {
       const deposit = (MinDeposit - 1).toString();
       await stableToken
-        .connect(lender)
+        .connect(accounts[1])
         .approve(lenderContract.address, toStable(deposit));
       await expect(
-        lenderContract.connect(lender).deposit(toStable(deposit))
+        lenderContract.connect(accounts[1]).deposit(toStable(deposit))
       ).to.be.revertedWith("Amount is less than Min. Deposit");
     });
 
     it("Should fail if has passed deposit end date", async function () {
       await time.increase(DAY);
       await expect(
-        lenderContract.connect(lender).deposit(toStable("100"))
+        lenderContract.connect(accounts[1]).deposit(toStable("100"))
       ).to.be.revertedWith("Deposit End Date has passed");
     });
 
     it("Should fail if deposit amount + pool size pass the Pool Max. Limit", async function () {
       await stableToken
-        .connect(lender)
+        .connect(accounts[1])
         .approve(lenderContract.address, toStable(`${PoolMaxLimit}`));
       await expect(
-        lenderContract.connect(lender).deposit(toStable(`${PoolMaxLimit}`))
+        lenderContract.connect(accounts[1]).deposit(toStable(`${PoolMaxLimit}`))
       ).to.be.revertedWith("Pool has reached its limit");
     });
   });
   describe("Claim Single Deposit", function () {
     before(async function () {
+      currentTime = await now();
       lenderContract = await LenderFactory.deploy(
-        admin.address,
+        addresses[0],
         stableAddress,
         bonusAddress,
         SampleAPR,
@@ -314,20 +339,22 @@ describe("Fixed Lender Pool", function () {
 
     it("Should fail if there is no deposit", async function () {
       await expect(
-        lenderContract.connect(lender).claimBonus()
+        lenderContract.connect(accounts[1]).claimBonus()
       ).to.be.revertedWith("You have not deposited anything");
     });
 
     it("Should fail if claim before starting pool", async function () {
       const amount = await toStable("1000");
-      await stableToken.transfer(lender.address, amount);
-      await stableToken.connect(lender).approve(lenderContract.address, amount);
-      await expect(lenderContract.connect(lender).deposit(amount))
+      await stableToken.transfer(addresses[1], amount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, amount);
+      await expect(lenderContract.connect(accounts[1]).deposit(amount))
         .to.emit(lenderContract, "Deposited")
-        .withArgs(lender.address, amount);
+        .withArgs(addresses[1], amount);
 
       await expect(
-        lenderContract.connect(lender).claimBonus()
+        lenderContract.connect(accounts[1]).claimBonus()
       ).to.be.revertedWith("Pool has not started yet");
     });
 
@@ -342,8 +369,10 @@ describe("Fixed Lender Pool", function () {
       await time.increase(passedPeriod);
       // SampleRate is 100 which is 1.00
       const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / Period;
-      await lenderContract.connect(lender).claimBonus();
-      const bonusBalance = await bonusToken.balanceOf(lender.address);
+      const beforeClaim = await bonusToken.balanceOf(addresses[1]);
+      await lenderContract.connect(accounts[1]).claimBonus();
+      const afterClaim = await bonusToken.balanceOf(addresses[1]);
+      const bonusBalance = afterClaim.sub(beforeClaim);
       const actualBonus = parseFloat(await fromBonus(bonusBalance));
       expect(actualBonus).to.be.within(expectedBonus, expectedBonus + 0.01);
     });
@@ -356,9 +385,9 @@ describe("Fixed Lender Pool", function () {
       const passedPeriod = Period / 2;
       // SampleRate is 100 which is 1.00
       const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / Period;
-      const beforeClaim = await bonusToken.balanceOf(lender.address);
-      await lenderContract.connect(lender).claimBonus();
-      const afterClaim = await bonusToken.balanceOf(lender.address);
+      const beforeClaim = await bonusToken.balanceOf(addresses[1]);
+      await lenderContract.connect(accounts[1]).claimBonus();
+      const afterClaim = await bonusToken.balanceOf(addresses[1]);
       const bonusBalance = afterClaim.sub(beforeClaim);
       const actualBonus = parseFloat(await fromBonus(bonusBalance));
       expect(actualBonus).to.be.within(expectedBonus - 0.01, expectedBonus);
@@ -369,7 +398,7 @@ describe("Fixed Lender Pool", function () {
     before(async function () {
       currentTime = await now();
       lenderContract = await LenderFactory.deploy(
-        admin.address,
+        addresses[0],
         stableAddress,
         bonusAddress,
         SampleAPR,
@@ -419,9 +448,9 @@ describe("Fixed Lender Pool", function () {
 
     it("Should claim nothing after claiming all bonuses till pool end date", async function () {
       const expectedBonus = 0;
-      const beforeClaim = await bonusToken.balanceOf(lender.address);
-      await lenderContract.connect(lender).claimBonus();
-      const afterClaim = await bonusToken.balanceOf(lender.address);
+      const beforeClaim = await bonusToken.balanceOf(addresses[1]);
+      await lenderContract.connect(accounts[1]).claimBonus();
+      const afterClaim = await bonusToken.balanceOf(addresses[1]);
       const bonusBalance = afterClaim.sub(beforeClaim);
       const actualBonus = parseFloat(await fromBonus(bonusBalance));
       expect(actualBonus).to.be.equal(expectedBonus);
