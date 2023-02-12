@@ -107,7 +107,7 @@ contract FixLender is IFixLender, AccessControl {
     }
 
     /**
-     * @dev See {IFixLender-claim}.
+     * @dev See {IFixLender-claimBonus}.
      */
     function claimBonus() external {
         require(
@@ -122,9 +122,8 @@ contract FixLender is IFixLender, AccessControl {
     }
 
     /**
-     * @dev Calculates the bonus reward based on _bonusRate for all msg.sender deposits
-     * @dev Rewards are only applicable for the pool period duration
-     * @dev Updates lastClaimTime of each deposit
+     * @dev Callable after calculating bonus rewards
+     * @dev Updates lastClaimTime of each deposit for msg.sender
      */
     function _updateClaimDate() private {
         for (uint256 i = 0; i < lenders[msg.sender].length; i++) {
@@ -135,14 +134,15 @@ contract FixLender is IFixLender, AccessControl {
     }
 
     /**
-     * @dev Calculates the bonus reward based on _bonusRate for all msg.sender deposits
+     * @dev Calculates the bonus reward based on _bonusRate for all lender deposits
      * @dev Rewards are only applicable for the pool period duration
-     * @dev Updates lastClaimTime of each deposit
+     * @param _lender is the address of lender
      */
     function _calculateBonus(address _lender) private view returns (uint256) {
         uint256 claimableAmount;
         uint256 diff;
-        for (uint256 i = 0; i < lenders[_lender].length; i++) {
+        uint256 depositNum = lenders[_lender].length;
+        for (uint256 i = 0; i < depositNum; i++) {
             uint256 amount = lenders[_lender][i].amount;
             uint256 lastClaimTime = lenders[_lender][i].lastClaimDate;
             if (block.timestamp < _poolEndDate) {
@@ -160,6 +160,13 @@ contract FixLender is IFixLender, AccessControl {
         return claimableAmount;
     }
 
+    /**
+     * @dev Calculates the bonus reward based on _bonusRate for all msg.sender deposits
+     * @param amount is the amount of deposited stable tokens
+     * @param duration is the passed duration for that deposit
+     * @param rate is the fixed _bonusRate for the pool
+     * @param poolPeriod is the fixed _poolPeriod for the pool
+     */
     function _bonusFormula(
         uint256 amount,
         uint256 duration,
