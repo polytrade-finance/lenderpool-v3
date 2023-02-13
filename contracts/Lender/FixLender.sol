@@ -15,9 +15,10 @@ import "contracts/Lender/Interface/IFixLender.sol";
  */
 contract FixLender is IFixLender, AccessControl {
     using SafeERC20 for IToken;
-    mapping(address => Deposit[]) public lenders;
+    mapping(address => Lender) public lenders;
 
     uint256 public poolSize;
+    uint256 private constant _YEAR = 365 days;
     uint256 private immutable _stableApr;
     uint256 private immutable _bonusRate;
     uint256 private immutable _stableDecimal;
@@ -74,7 +75,7 @@ contract FixLender is IFixLender, AccessControl {
         _bonusToken = IToken(bonusToken_);
         _stableDecimal = _stableToken.decimals();
         _bonusDecimal = _bonusToken.decimals();
-        _stableApr = stableApr_;
+        _stableApr = stableApr_ / 1E2;
         _bonusRate = bonusRate_ * (10 ** (_bonusDecimal - _stableDecimal));
         _poolStartDate = poolStartDate_;
         _depositEndDate = depositEndDate_;
