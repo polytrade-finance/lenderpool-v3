@@ -183,18 +183,18 @@ contract FixLender is IFixLender, AccessControl {
     }
 
     /**
-     * @dev Calculates the bonus reward based on _bonusRate for all msg.sender deposits
+     * @dev Calculates the bonus and stable rewards for all lender
      * @param amount is the amount of deposited stable tokens
-     * @param duration is the passed duration for that deposit
-     * @param rate is the fixed _bonusRate for the pool
-     * @param poolPeriod is the fixed _poolPeriod for the pool
+     * @param duration is the passed duration from last updated rewards
+     * @param rate is the fixed _bonusRate or _stableApr for the pool
+     * @param period is the period that calculates rewards based on that
      */
-    function _bonusFormula(
+    function _calculateFormula(
         uint256 amount,
         uint256 duration,
         uint256 rate,
-        uint256 poolPeriod
+        uint256 period
     ) private pure returns (uint256) {
-        return ((amount * duration * rate) / 1E2) / poolPeriod;
+        return ((amount * duration * rate) / 1E2) / period;
     }
 }
