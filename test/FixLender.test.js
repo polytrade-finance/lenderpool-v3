@@ -604,5 +604,64 @@ describe("Fixed Lender Pool", function () {
       expect(actualBonus).to.be.equal(expectedBonus);
       expect(actualStable).to.be.equal(expectedStable);
     });
+    it("Should deposit 100 stable with 3 different accounts before and after pool start date and withdraw after pool end date", async function () {
+      const amount = await toStable("100");
+      const bonusAmount = await toBonus("1000");
+      for (let i = 1; i < 4; i++) {
+        await stableToken.transfer(addresses[i], 2 * amount);
+        await stableToken.transfer(lenderContract.address, 0.1 * 2 * amount);
+        await bonusToken.transfer(lenderContract.address, bonusAmount);
+        await stableToken
+          .connect(accounts[i])
+          .approve(lenderContract.address, 2 * amount);
+      }
+      for (let i = 1; i < 4; i++) {
+        await expect(lenderContract.connect(accounts[i]).deposit(amount))
+          .to.emit(lenderContract, "Deposited")
+          .withArgs(addresses[i], amount);
+      }
+      // Increase to one day after pool start date
+      await time.increase(2 * DAY);
+      for (let i = 1; i < 4; i++) {
+        await expect(lenderContract.connect(accounts[i]).deposit(amount))
+          .to.emit(lenderContract, "Deposited")
+          .withArgs(addresses[i], amount);
+      }
+      const Period = SamplePeriod * DAY;
+      const secondPeriod = (SamplePeriod - 1) * DAY;
+      await time.increase(secondPeriod);
+      const expectedBonus1st = (100 * Period * (SampleRate / 100)) / Period;
+      const expectedBonus2nd =
+        (100 * secondPeriod * (SampleRate / 100)) / Period;
+      const unroundExpectedStable1st =
+        (100 * Period * (SampleAPR / 10000)) / YEAR;
+      const unroundExpectedStable2nd =
+        (100 * secondPeriod * (SampleAPR / 10000)) / YEAR;
+      // need to round expected stable with 6 decimal since stable has 6 decimal
+      const expectedStable1st =
+        Math.round(unroundExpectedStable1st * 10 ** StableDecimal) /
+        10 ** StableDecimal;
+      const expectedStable2nd =
+        Math.round(unroundExpectedStable2nd * 10 ** StableDecimal) /
+        10 ** StableDecimal;
+      for (let i = 1; i < 4; i++) {
+        const bonusBeforeWith = await bonusToken.balanceOf(addresses[i]);
+        const stableBeforeWith = await stableToken.balanceOf(addresses[i]);
+        await lenderContract.connect(accounts[i]).withdraw();
+        const bonusAfterWith = await bonusToken.balanceOf(addresses[i]);
+        const stableAfterWith = await stableToken.balanceOf(addresses[i]);
+        const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
+        const stableBalance = stableAfterWith.sub(stableBeforeWith);
+        const actualBonus = parseFloat(await fromBonus(bonusBalance));
+        const actualStable = parseFloat(await fromStable(stableBalance));
+        const expectedStable = expectedStable1st + expectedStable2nd + 200;
+        const expectedBonus = expectedBonus1st + expectedBonus2nd;
+        expect(actualStable).to.be.within(
+          expectedStable - 0.00001,
+          expectedStable
+        );
+        expect(actualBonus).to.be.within(expectedBonus - 0.0003, expectedBonus);
+      }
+    });
   });
 });

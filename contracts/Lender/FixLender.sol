@@ -150,9 +150,11 @@ contract FixLender is IFixLender, AccessControl {
             "You have nothing to withdraw"
         );
         uint256 calculatedReward = _calculateStableReward(msg.sender);
+        uint256 calculatedBonus = _calculateBonus(msg.sender);
         uint256 stableReward = calculatedReward +
             lenders[msg.sender].pendingReward;
-        uint256 bonusReward = _calculateBonus(msg.sender);
+        uint256 bonusReward = calculatedBonus +
+            lenders[msg.sender].pendingBonus;
         uint256 stableAmount = stableReward + lenders[msg.sender].totalDeposit;
         delete lenders[msg.sender];
         _bonusToken.safeTransfer(msg.sender, bonusReward);
@@ -188,7 +190,11 @@ contract FixLender is IFixLender, AccessControl {
     function _calculateStableReward(
         address _lender
     ) private view returns (uint256) {
-        uint256 diff = _poolEndDate - lenders[_lender].lastDepositDate;
+        uint256 startDate = lenders[_lender].lastDepositDate;
+        uint256 endDate = block.timestamp > _poolEndDate
+            ? _poolEndDate
+            : block.timestamp;
+        uint256 diff = endDate - startDate;
         uint256 calculatedReward = _calculateFormula(
             lenders[_lender].totalDeposit,
             diff,
