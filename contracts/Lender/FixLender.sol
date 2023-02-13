@@ -161,30 +161,25 @@ contract FixLender is IFixLender, AccessControl {
     }
 
     /**
-     * @dev Calculates the bonus reward based on _bonusRate for all lender deposits
+     * @dev Calculates the stable reward based on _stableApr for all lender deposits
      * @dev Rewards are only applicable for the pool period duration
      * @param _lender is the address of lender
      */
-    function _calculateBonus(address _lender) private view returns (uint256) {
-        uint256 claimableAmount;
-        uint256 diff;
-        uint256 depositNum = lenders[_lender].length;
-        for (uint256 i = 0; i < depositNum; i++) {
-            uint256 amount = lenders[_lender][i].amount;
-            uint256 lastClaimTime = lenders[_lender][i].lastClaimDate;
-            if (block.timestamp < _poolEndDate) {
-                diff = block.timestamp - lastClaimTime;
-            } else {
-                diff = _poolEndDate - lastClaimTime;
-            }
-            claimableAmount += _bonusFormula(
-                amount,
-                diff,
-                _bonusRate,
-                _poolPeriod
-            );
-        }
-        return claimableAmount;
+    function _calculateStableReward(
+        address _lender
+    ) private view returns (uint256) {
+        uint256 startDate = lenders[_lender].lastDepositDate;
+        uint256 endDate = block.timestamp > _poolEndDate
+            ? _poolEndDate
+            : block.timestamp;
+        uint256 diff = endDate - startDate;
+        uint256 calculatedReward = _calculateFormula(
+            lenders[_lender].totalDeposit,
+            diff,
+            _stableApr,
+            _YEAR
+        );
+        return calculatedReward;
     }
 
     /**
