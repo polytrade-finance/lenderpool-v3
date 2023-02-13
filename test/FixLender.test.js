@@ -8,11 +8,12 @@ const {
   SampleAPR,
   SampleRate,
   DAY,
+  YEAR,
   SamplePeriod,
   MinDeposit,
   PoolMaxLimit,
 } = require("./constants/constants.helpers");
-const { now, toStable, toBonus, fromBonus } = require("./helpers");
+const { now, toStable, toBonus, fromBonus, fromStable } = require("./helpers");
 
 describe("Fixed Lender Pool", function () {
   let accounts;
@@ -519,6 +520,89 @@ describe("Fixed Lender Pool", function () {
       const bonusBalance = afterClaim.sub(beforeClaim);
       const actualBonus = parseFloat(await fromBonus(bonusBalance));
       expect(actualBonus).to.be.equal(expectedBonus);
+    });
+  });
+
+  describe("Withdraw", function () {
+    beforeEach(async function () {
+      currentTime = await now();
+      lenderContract = await LenderFactory.deploy(
+        addresses[0],
+        stableAddress,
+        bonusAddress,
+        SampleAPR,
+        SampleRate,
+        currentTime + DAY,
+        currentTime + 10 * DAY,
+        SamplePeriod,
+        MinDeposit,
+        PoolMaxLimit,
+        true
+      );
+      await lenderContract.deployed();
+    });
+
+    it("Should fail if caller has no deposit", async function () {
+      // Increase to pool start date
+      await time.increase(DAY);
+      const Period = SamplePeriod * DAY;
+      await time.increase(Period);
+      await expect(
+        lenderContract.connect(accounts[1]).withdraw()
+      ).to.be.revertedWith("You have nothing to withdraw");
+    });
+
+    it("Should fail if withdraw before pool end date", async function () {
+      const amount = await toStable("100");
+      const bonusAmount = await toBonus("100");
+      await stableToken.transfer(addresses[1], amount);
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, amount);
+      await expect(lenderContract.connect(accounts[1]).deposit(amount))
+        .to.emit(lenderContract, "Deposited")
+        .withArgs(addresses[1], amount);
+      const Period = SamplePeriod * DAY;
+      const passedPeriod = Period / 2;
+      await time.increase(passedPeriod);
+      await expect(
+        lenderContract.connect(accounts[1]).withdraw()
+      ).to.be.revertedWith("Pool has not ended yet");
+    });
+
+    it("Should withdraw all rewards + principal after pool end date", async function () {
+      const amount = await toStable("100");
+      const bonusAmount = await toBonus("100");
+      await stableToken.transfer(addresses[1], amount);
+      await stableToken.transfer(lenderContract.address, amount * 0.1);
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, amount);
+      await lenderContract.connect(accounts[1]).deposit(amount);
+      // Increase to pool start date
+      await time.increase(DAY);
+      const Period = SamplePeriod * DAY;
+      await time.increase(Period);
+      const expectedBonus = (100 * Period * (SampleRate / 100)) / Period;
+      const unroundExpectedStable =
+        (100 * Period * (SampleAPR / 10000)) / YEAR + 100;
+      // need to round expected stable with 6 decimal since stable has 6 decimal
+      const expectedStable =
+        Math.round(unroundExpectedStable * 10 ** StableDecimal) /
+        10 ** StableDecimal;
+      const bonusBeforeWith = await bonusToken.balanceOf(addresses[1]);
+      const stableBeforeWith = await stableToken.balanceOf(addresses[1]);
+      await lenderContract.connect(accounts[1]).withdraw();
+      const bonusAfterWith = await bonusToken.balanceOf(addresses[1]);
+      const stableAfterWith = await stableToken.balanceOf(addresses[1]);
+      const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
+      const stableBalance = stableAfterWith.sub(stableBeforeWith);
+      const actualBonus = parseFloat(await fromBonus(bonusBalance));
+      const actualStable = parseFloat(await fromStable(stableBalance));
+      expect(actualBonus).to.be.equal(expectedBonus);
+      expect(actualStable).to.be.equal(expectedStable);
     });
   });
 });
