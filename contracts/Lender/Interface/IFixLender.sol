@@ -24,11 +24,11 @@ interface IFixLender {
     Reward lender received based on APR
     * @param bonusReward is the remaining Bonus rewards lender received based on the Rate 
     */
-    // event Withdrawn(
-    //     address indexed lender,
-    //     uint256 amount,
-    //     uint256 bonusReward
-    // );
+    event Withdrawn(
+        address indexed lender,
+        uint256 amount,
+        uint256 bonusReward
+    );
 
     /**
      * @notice Emits when lender claims Bonus rewards
@@ -91,7 +91,7 @@ interface IFixLender {
      * - 'LenderPool' should have Bonus tokens more than or equal to lender accumulated bonus rewards
      * Emits {Withdrawn} event
      */
-    // function withdraw() external;
+    function withdraw() external;
 
     /**
      * @notice Withdraws principal deposit for unverified lenders after given access from admin
