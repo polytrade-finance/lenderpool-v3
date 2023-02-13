@@ -99,11 +99,23 @@ contract FixLender is IFixLender, AccessControl {
             block.timestamp < _depositEndDate,
             "Deposit End Date has passed"
         );
+        uint256 currentDeposit = lenders[msg.sender].totalDeposit;
+        uint256 pendingReward = lenders[msg.sender].pendingReward;
+        uint256 pendingBonus = lenders[msg.sender].pendingBonus;
+        uint256 startDate = _poolStartDate;
         poolSize += amount;
-        uint256 startDate = block.timestamp > _poolStartDate
-            ? block.timestamp
-            : _poolStartDate;
-        lenders[msg.sender].push(Deposit(amount, startDate, startDate));
+        if (block.timestamp > _poolStartDate) {
+            pendingBonus += _calculateBonus(msg.sender);
+            pendingReward += _calculateStableReward(msg.sender);
+            startDate = block.timestamp;
+        }
+        lenders[msg.sender] = Lender(
+            currentDeposit + amount,
+            pendingReward,
+            pendingBonus,
+            startDate,
+            startDate
+        );
         _stableToken.safeTransferFrom(msg.sender, address(this), amount);
         emit Deposited(msg.sender, amount);
     }
