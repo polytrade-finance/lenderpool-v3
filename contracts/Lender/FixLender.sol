@@ -163,6 +163,17 @@ contract FixLender is IFixLender, AccessControl {
         emit Withdrawn(msg.sender, stableAmount, bonusReward);
     }
 
+
+    /**
+     * @dev See {IFixLender-changeFine}.
+     */
+    function changeFine(uint256 newRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newRate < 10000, "Rate can not be more than 100%");
+        uint256 oldRate = _fineRate;
+        _fineRate = newRate;
+        emit FineChanged(oldRate, newRate);
+    }
+
     /**
      * @dev Calculates the bonus reward based on _bonusRate for all lender deposits
      * @dev Rewards are only applicable for the pool period duration
