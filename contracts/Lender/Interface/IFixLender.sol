@@ -38,10 +38,12 @@ interface IFixLender {
     event BonusClaimed(address indexed lender, uint256 bonusReward);
 
     /**
-     * @notice Emits when an unverified lender withdraws the principal amount after given access from owner
+     * @notice Emits when a lender tries to withdraw from pool before pool end date
      * @param lender is the address of the 'lender'
-     * @param amount is the principal amount that withdrawn by lender
+     * @param amount is the amount that withdrawn by lender
      */
+    event WithdrawnEmergency(address indexed lender, uint256 amount);
+
     /**
      * @notice Emits when a admin change the rate for emergency withdraw fine
      * @param oldRate is the old fine rate
@@ -99,12 +101,15 @@ interface IFixLender {
     function withdraw() external;
 
     /**
-     * @notice Withdraws principal deposit for unverified lenders after given access from admin
+     * @notice Withdraws principal total deposit minus fine that is a percentage of total deposit
      * Requirements:
-     * - 'msg.sender' should be unverified
-     * - 'msg.sender' should have access
-     * Emits {PrincipalWithdrawn} event
+     * - Should be called before pool end date
+     * - 'msg.sender' should have deposit
+     * - Lender should have enough stable token to transfer
+     * Emits {WithdrawnEmergency} event
      */
+    function emergencyWithdraw() external;
+
     /**
      * @notice Changes the fine rate for emergency withdraw
      * @dev Fine rate is in percentage with 2 decimals

@@ -163,6 +163,25 @@ contract FixLender is IFixLender, AccessControl {
         emit Withdrawn(msg.sender, stableAmount, bonusReward);
     }
 
+    /**
+     * @dev See {IFixLender-emergencyWithdraw}.
+     */
+    function emergencyWithdraw() external {
+        require(
+            lenders[msg.sender].totalDeposit != 0,
+            "You have nothing to withdraw"
+        );
+        require(
+            block.timestamp < _poolEndDate,
+            "You can not emergency withdraw"
+        );
+        uint256 totalDeposit = lenders[msg.sender].totalDeposit;
+        uint256 fineAmount = (totalDeposit * _fineRate) / 1E4;
+        uint256 refundAmount = totalDeposit - fineAmount;
+        delete lenders[msg.sender];
+        _stableToken.safeTransfer(msg.sender, refundAmount);
+        emit WithdrawnEmergency(msg.sender, refundAmount);
+    }
 
     /**
      * @dev See {IFixLender-changeFine}.
