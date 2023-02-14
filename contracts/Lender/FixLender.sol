@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "contracts/Token/Interface/IToken.sol";
 import "contracts/Lender/Interface/IFixLender.sol";
+import "contracts/Verification/Interface/IVerification.sol";
 
 /**
  * @title Fixed Lender Pool contract
@@ -31,8 +32,16 @@ contract FixLender is IFixLender, AccessControl {
     uint256 private immutable _poolMaxLimit;
     bool private immutable _verificationStatus;
 
+    IVerification public verification;
     IToken private immutable _stableToken;
     IToken private immutable _bonusToken;
+
+    modifier checkKYC(address lender) {
+        if (_verificationStatus) {
+            require(verification.isValid(lender), "You are not verified");
+        }
+        _;
+    }
 
     /**
      * @dev Sets the values for admin, stableToken, bonusToken, stableApr, bonusRate, bonusRate, poolStartDate,
@@ -87,9 +96,24 @@ contract FixLender is IFixLender, AccessControl {
     }
 
     /**
+     * @notice `switchVerification` updates the Verification contract address.
+     * @dev Changed verification Contract must comply with `IVerification`
+     * @param newVerification, address of the new Verification contract
+     * Emits {VerificationSwitched} event
+     */
+    function switchVerification(
+        address newVerification
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newVerification != address(0));
+        address oldVerification = address(verification);
+        verification = IVerification(newVerification);
+        emit VerificationSwitched(oldVerification, newVerification);
+    }
+
+    /**
      * @dev See {IFixLender-deposit}.
      */
-    function deposit(uint256 amount) external {
+    function deposit(uint256 amount) external checkKYC(msg.sender) {
         require(
             _poolMaxLimit >= poolSize + amount,
             "Pool has reached its limit"
