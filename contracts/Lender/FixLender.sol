@@ -18,6 +18,7 @@ contract FixLender is IFixLender, AccessControl {
     mapping(address => Lender) public lenders;
 
     uint256 public poolSize;
+    uint256 private _fineRate;
     uint256 private constant _YEAR = 365 days;
     uint256 private immutable _stableApr;
     uint256 private immutable _bonusRate;
