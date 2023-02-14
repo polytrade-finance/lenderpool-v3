@@ -50,10 +50,10 @@ interface IFixLender {
      * @param oldVerification is the old verification contract Address
      * @param newVerification is the new verification contract Address
      */
-    // event VerificationSwitched(
-    //     address oldVerification,
-    //     address newVerification
-    // );
+    event VerificationSwitched(
+        address oldVerification,
+        address newVerification
+    );
 
     /**
      * @notice Emitted when staking strategy is switched
@@ -107,7 +107,7 @@ interface IFixLender {
      * @param _newVerification is the address of the new verification contract
      * Emits {VerificationSwitched} event
      */
-    // function switchVerification(address _newVerification) external;
+    function switchVerification(address _newVerification) external;
 
     /**
      * @dev Changes the Strategy contract that has been used for using funds in defi protocols
