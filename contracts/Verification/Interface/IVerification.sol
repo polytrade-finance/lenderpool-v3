@@ -16,7 +16,7 @@ interface IVerification {
      * @param agent, address of the agent to be added or removed
      * @param status, true if added or false if removed
      */
-    event AgentSet(address agent, bool status);
+    event AgentSet(address indexed agent, bool status);
 
     /**
      * @notice Emits when a user is validated or removed
@@ -24,7 +24,7 @@ interface IVerification {
      * @param provider, code of the provider (bytes2)
      * @param status, true if added or false if removed
      */
-    event UserValidation(address user, bytes2 provider, bool status);
+    event UserValidation(address indexed user, bytes2 provider, bool status);
 
     /**
      * @notice Returns whether a user's KYC is verified or not
