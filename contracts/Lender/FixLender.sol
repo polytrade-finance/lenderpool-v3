@@ -158,12 +158,14 @@ contract FixLender is IFixLender, AccessControl {
         (uint256 stableReward, uint256 bonusReward) = _calculateRewards(
             msg.sender
         );
+        uint256 totalDeposit = lenders[msg.sender].totalDeposit;
         uint256 stableAmount = stableReward +
             lenders[msg.sender].pendingStableReward +
-            lenders[msg.sender].totalDeposit;
+            totalDeposit;
         uint256 bonusAmount = bonusReward +
             lenders[msg.sender].pendingBonusReward;
         delete lenders[msg.sender];
+        poolSize -= totalDeposit;
         _bonusToken.safeTransfer(msg.sender, bonusAmount);
         _stableToken.safeTransfer(msg.sender, stableAmount);
         emit Withdrawn(msg.sender, stableAmount, bonusAmount);
@@ -185,6 +187,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 withdrawFee = (totalDeposit * _withdrawRate) / 1E4;
         uint256 refundAmount = totalDeposit - withdrawFee;
         delete lenders[msg.sender];
+        poolSize -= totalDeposit;
         _stableToken.safeTransfer(msg.sender, refundAmount);
         emit WithdrawnEmergency(msg.sender, refundAmount);
     }
