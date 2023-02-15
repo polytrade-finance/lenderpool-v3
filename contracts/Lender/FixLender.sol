@@ -150,13 +150,11 @@ contract FixLender is IFixLender, AccessControl {
             lenders[msg.sender].totalDeposit != 0,
             "You have nothing to withdraw"
         );
-        uint256 calculatedReward = _calculateStableReward(msg.sender);
-        uint256 calculatedBonus = _calculateBonus(msg.sender);
-        uint256 stableReward = calculatedReward +
-            lenders[msg.sender].pendingReward;
-        uint256 bonusReward = calculatedBonus +
+        uint256 stableAmount = _calculateStableReward(msg.sender) +
+            lenders[msg.sender].pendingReward +
+            lenders[msg.sender].totalDeposit;
+        uint256 bonusReward = _calculateBonus(msg.sender) +
             lenders[msg.sender].pendingBonus;
-        uint256 stableAmount = stableReward + lenders[msg.sender].totalDeposit;
         delete lenders[msg.sender];
         _bonusToken.safeTransfer(msg.sender, bonusReward);
         _stableToken.safeTransfer(msg.sender, stableAmount);
