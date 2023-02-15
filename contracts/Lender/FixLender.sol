@@ -19,6 +19,7 @@ contract FixLender is IFixLender, AccessControl {
     mapping(address => Lender) public lenders;
 
     uint256 public poolSize;
+    uint256 private _withdrawRate;
     uint256 private constant _YEAR = 365 days;
     uint256 private immutable _stableApr;
     uint256 private immutable _bonusRate;
@@ -129,8 +130,11 @@ contract FixLender is IFixLender, AccessControl {
         uint256 startDate = _poolStartDate;
         poolSize += amount;
         if (block.timestamp > _poolStartDate) {
-            pendingBonus += _calculateBonus(msg.sender);
-            pendingReward += _calculateStableReward(msg.sender);
+            (uint256 bonusReward, uint256 stableReward) = _calculateRewards(
+                msg.sender
+            );
+            pendingBonus += bonusReward;
+            pendingReward += stableReward;
             startDate = block.timestamp;
         }
         lenders[msg.sender] = Lender(
@@ -153,9 +157,8 @@ contract FixLender is IFixLender, AccessControl {
             "You have not deposited anything"
         );
         require(block.timestamp > _poolStartDate, "Pool has not started yet");
-        uint256 calculatedBonus = _calculateBonus(msg.sender);
-        uint256 claimableBonus = calculatedBonus +
-            lenders[msg.sender].pendingBonus;
+        (uint256 bonusReward, ) = _calculateRewards(msg.sender);
+        uint256 claimableBonus = bonusReward + lenders[msg.sender].pendingBonus;
         lenders[msg.sender].pendingBonus = 0;
         lenders[msg.sender].lastClaimDate = block.timestamp > _poolEndDate
             ? _poolEndDate
@@ -173,17 +176,61 @@ contract FixLender is IFixLender, AccessControl {
             lenders[msg.sender].totalDeposit != 0,
             "You have nothing to withdraw"
         );
-        uint256 calculatedReward = _calculateStableReward(msg.sender);
-        uint256 calculatedBonus = _calculateBonus(msg.sender);
-        uint256 stableReward = calculatedReward +
-            lenders[msg.sender].pendingReward;
-        uint256 bonusReward = calculatedBonus +
-            lenders[msg.sender].pendingBonus;
-        uint256 stableAmount = stableReward + lenders[msg.sender].totalDeposit;
+        (uint256 bonusReward, uint256 stableReward) = _calculateRewards(
+            msg.sender
+        );
+        uint256 stableAmount = stableReward +
+            lenders[msg.sender].pendingReward +
+            lenders[msg.sender].totalDeposit;
+        uint256 bonusAmount = bonusReward + lenders[msg.sender].pendingBonus;
         delete lenders[msg.sender];
-        _bonusToken.safeTransfer(msg.sender, bonusReward);
+        _bonusToken.safeTransfer(msg.sender, bonusAmount);
         _stableToken.safeTransfer(msg.sender, stableAmount);
-        emit Withdrawn(msg.sender, stableAmount, bonusReward);
+        emit Withdrawn(msg.sender, stableAmount, bonusAmount);
+    }
+
+    /**
+     * @dev See {IFixLender-emergencyWithdraw}.
+     */
+    function emergencyWithdraw() external {
+        require(
+            lenders[msg.sender].totalDeposit != 0,
+            "You have nothing to withdraw"
+        );
+        require(
+            block.timestamp < _poolEndDate,
+            "You can not emergency withdraw"
+        );
+        uint256 totalDeposit = lenders[msg.sender].totalDeposit;
+        uint256 withdrawFee = (totalDeposit * _withdrawRate) / 1E4;
+        uint256 refundAmount = totalDeposit - withdrawFee;
+        delete lenders[msg.sender];
+        _stableToken.safeTransfer(msg.sender, refundAmount);
+        emit WithdrawnEmergency(msg.sender, refundAmount);
+    }
+
+    /**
+     * @dev See {IFixLender-setWithdrawRate}.
+     */
+    function setWithdrawRate(
+        uint256 newRate
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newRate < 10000, "Rate can not be more than 100%");
+        uint256 oldRate = _withdrawRate;
+        _withdrawRate = newRate;
+        emit WithdrawRateChanged(oldRate, newRate);
+    }
+
+    function _calculateRewards(
+        address lender
+    ) private view returns (uint256, uint256) {
+        uint256 endDate = block.timestamp > _poolEndDate
+            ? _poolEndDate
+            : block.timestamp;
+        return (
+            _calculateBonus(lender, endDate),
+            _calculateStableReward(lender, endDate)
+        );
     }
 
     /**
@@ -191,12 +238,11 @@ contract FixLender is IFixLender, AccessControl {
      * @dev Rewards are only applicable for the pool period duration
      * @param _lender is the address of lender
      */
-    function _calculateBonus(address _lender) private view returns (uint256) {
-        uint256 startDate = lenders[_lender].lastClaimDate;
-        uint256 endDate = block.timestamp > _poolEndDate
-            ? _poolEndDate
-            : block.timestamp;
-        uint256 diff = endDate - startDate;
+    function _calculateBonus(
+        address _lender,
+        uint256 _endDate
+    ) private view returns (uint256) {
+        uint256 diff = _endDate - lenders[_lender].lastClaimDate;
         uint256 calculatedBonus = _calculateFormula(
             lenders[_lender].totalDeposit,
             diff,
@@ -212,13 +258,10 @@ contract FixLender is IFixLender, AccessControl {
      * @param _lender is the address of lender
      */
     function _calculateStableReward(
-        address _lender
+        address _lender,
+        uint256 _endDate
     ) private view returns (uint256) {
-        uint256 startDate = lenders[_lender].lastDepositDate;
-        uint256 endDate = block.timestamp > _poolEndDate
-            ? _poolEndDate
-            : block.timestamp;
-        uint256 diff = endDate - startDate;
+        uint256 diff = _endDate - lenders[_lender].lastDepositDate;
         uint256 calculatedReward = _calculateFormula(
             lenders[_lender].totalDeposit,
             diff,
