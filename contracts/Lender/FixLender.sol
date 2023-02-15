@@ -199,7 +199,7 @@ contract FixLender is IFixLender, AccessControl {
 
     /**
      * @dev Calculates both the bonus reward and stable rewards for lender
-     * @param _lender is the address of lender
+     * @param lender is the address of lender
      */
     function _calculateRewards(
         address lender
