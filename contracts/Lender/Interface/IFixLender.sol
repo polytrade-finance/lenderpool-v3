@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
+/**
+ * @title IFixLender
+ * @author Polytrade
+ */
 interface IFixLender {
     struct Lender {
         uint256 totalDeposit;

@@ -5,8 +5,10 @@ import "contracts/Verification/Interface/IVerification.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
+ * @title Verification Contract
  * @author Polytrade
- * @title Verification
+ * @notice Verification contract used for checking users KYC if needed
+ * @dev The contract is in development stage
  */
 contract Verification is IVerification, Ownable {
     mapping(address => bool) public agents;
@@ -19,8 +21,9 @@ contract Verification is IVerification, Ownable {
 
     /**
      * @notice Function to set agent on the verification contract
-     * @param agent, address of the agent to be added or removed
-     * @param status, true if added or false if removed
+     * @param agent is the address of the agent to be added or removed
+     * @param status is true if added or false if removed
+     * Emits {AgentSet} event
      */
     function setAgent(address agent, bool status) external onlyOwner {
         agents[agent] = status;
@@ -29,8 +32,9 @@ contract Verification is IVerification, Ownable {
 
     /**
      * @notice Function to approve/revoke Validation for any user
-     * @param user, address of the user to set Validation
-     * @param status, true = approve Validation and false = revoke Validation
+     * @param user is the address of the user to set Validation
+     * @param status is true for approve Validation and false for revoke Validation
+     * Emits {ValidationSet} event
      */
     function setValidation(
         address user,
@@ -39,14 +43,11 @@ contract Verification is IVerification, Ownable {
     ) external {
         require(agents[msg.sender], "Callable by agents only");
         userValidation[user] = UserStatus(provider, status);
-        emit UserValidation(user, provider, status);
+        emit ValidationSet(user, provider, status);
     }
 
     /**
-     * @notice Returns whether a user's Validation is verified or not
-     * @dev returns a boolean if the Validation is valid
-     * @param user, address of the user to check
-     * @return returns true if user's Validation is valid or false if not
+     * @dev See {IVerification-isValid}.
      */
     function isValid(address user) external view returns (bool) {
         return (userValidation[user].status);
@@ -55,8 +56,7 @@ contract Verification is IVerification, Ownable {
     /**
      * @notice Returns user's provider
      * @dev returns a bytes2 representation of the provider if valid
-     * @param user, address of the user to check
-     * @return returns bytes2 code representing the provider
+     * @param user is the address of the user to check
      */
     function getUserProvider(address user) external view returns (bytes2) {
         return (userValidation[user].provider);
