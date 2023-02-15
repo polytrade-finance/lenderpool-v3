@@ -18,7 +18,7 @@ contract FixLender is IFixLender, AccessControl {
     mapping(address => Lender) public lenders;
 
     uint256 public poolSize;
-    uint256 private _fineRate;
+    uint256 private _withdrawRate;
     uint256 private constant _YEAR = 365 days;
     uint256 private immutable _stableApr;
     uint256 private immutable _bonusRate;
@@ -176,21 +176,23 @@ contract FixLender is IFixLender, AccessControl {
             "You can not emergency withdraw"
         );
         uint256 totalDeposit = lenders[msg.sender].totalDeposit;
-        uint256 fineAmount = (totalDeposit * _fineRate) / 1E4;
-        uint256 refundAmount = totalDeposit - fineAmount;
+        uint256 withdrawFee = (totalDeposit * _withdrawRate) / 1E4;
+        uint256 refundAmount = totalDeposit - withdrawFee;
         delete lenders[msg.sender];
         _stableToken.safeTransfer(msg.sender, refundAmount);
         emit WithdrawnEmergency(msg.sender, refundAmount);
     }
 
     /**
-     * @dev See {IFixLender-changeFine}.
+     * @dev See {IFixLender-setWithdrawRate}.
      */
-    function changeFine(uint256 newRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setWithdrawRate(
+        uint256 newRate
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newRate < 10000, "Rate can not be more than 100%");
-        uint256 oldRate = _fineRate;
-        _fineRate = newRate;
-        emit FineChanged(oldRate, newRate);
+        uint256 oldRate = _withdrawRate;
+        _withdrawRate = newRate;
+        emit WithdrawRateChanged(oldRate, newRate);
     }
 
     /**

@@ -45,11 +45,11 @@ interface IFixLender {
     event WithdrawnEmergency(address indexed lender, uint256 amount);
 
     /**
-     * @notice Emits when a admin change the rate for emergency withdraw fine
-     * @param oldRate is the old fine rate
-     * @param newRate is the new fine rate
+     * @notice Emits when a admin change the rate for emergency withdraw fee
+     * @param oldRate is the old withdraw rate
+     * @param newRate is the new withdraw rate
      */
-    event FineChanged(uint256 oldRate, uint256 newRate);
+    event WithdrawRateChanged(uint256 oldRate, uint256 newRate);
 
     /**
      * @notice Emits when new verification contract is used
@@ -101,7 +101,7 @@ interface IFixLender {
     function withdraw() external;
 
     /**
-     * @notice Withdraws principal total deposit minus fine that is a percentage of total deposit
+     * @notice Withdraws principal total deposit minus fee that is a percentage of total deposit
      * Requirements:
      * - Should be called before pool end date
      * - 'msg.sender' should have deposit
@@ -111,12 +111,12 @@ interface IFixLender {
     function emergencyWithdraw() external;
 
     /**
-     * @notice Changes the fine rate for emergency withdraw
-     * @dev Fine rate is in percentage with 2 decimals
-     * @param newRate is the new fine rate with 2 decimals
-     * Emits {FineChanged} event
+     * @notice Changes the withdraw rate for emergency withdraw
+     * @dev withdraw rate is in percentage with 2 decimals
+     * @param newRate is the new withdraw rate with 2 decimals
+     * Emits {WithdrawRateChanged} event
      */
-    function changeFine(uint256 newRate) external;
+    function setWithdrawRate(uint256 newRate) external;
 
     /**
      * @dev Changes the Verification contract that has been used for checking verification of lenders

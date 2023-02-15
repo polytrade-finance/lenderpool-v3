@@ -692,15 +692,15 @@ describe("Fixed Lender Pool", function () {
       ).to.be.revertedWith("You have nothing to withdraw");
     });
 
-    it("Should fail to change fine rate to more than or equal to 100%", async function () {
-      await expect(lenderContract.changeFine(10000)).to.be.revertedWith(
+    it("Should fail to change withdraw rate to more than or equal to 100%", async function () {
+      await expect(lenderContract.setWithdrawRate(10000)).to.be.revertedWith(
         "Rate can not be more than 100%"
       );
     });
 
-    it("Should fail to change fine rate without admin access", async function () {
+    it("Should fail to change withdraw rate without admin access", async function () {
       await expect(
-        lenderContract.connect(accounts[1]).changeFine(500)
+        lenderContract.connect(accounts[1]).setWithdrawRate(500)
       ).to.be.revertedWith(
         `AccessControl: account ${addresses[1].toLowerCase()} is missing role ${ethers.utils.hexZeroPad(
           ethers.utils.hexlify(0),
@@ -726,9 +726,9 @@ describe("Fixed Lender Pool", function () {
       ).to.be.revertedWith("You can not emergency withdraw");
     });
 
-    it("Should emergency withdraw all deposits before pool end date (Fine: 0%)", async function () {
+    it("Should emergency withdraw all deposits before pool end date (Rate: 0%)", async function () {
       const amount = await toStable("100");
-      const fine = 0;
+      const rate = 0;
       await stableToken.transfer(addresses[1], 2 * amount);
       await stableToken
         .connect(accounts[1])
@@ -740,7 +740,7 @@ describe("Fixed Lender Pool", function () {
       const Period = SamplePeriod * DAY;
       // increase to 10 seconds before pool end date
       await time.increase(Period - 10);
-      const expectedStable = 200 - 200 * fine;
+      const expectedStable = 200 - 200 * rate;
       const expectedBonus = 0;
       const bonusBeforeWith = await bonusToken.balanceOf(addresses[1]);
       const stableBeforeWith = await stableToken.balanceOf(addresses[1]);
@@ -757,10 +757,10 @@ describe("Fixed Lender Pool", function () {
       expect(actualStable).to.be.equal(expectedStable);
     });
 
-    it("Should deposit 100 stable with 3 different accounts before and after pool start date and emergency withdraw before pool end date (fine 0.52%)", async function () {
-      const fine = 0.0052;
-      await expect(lenderContract.changeFine(52))
-        .to.emit(lenderContract, "FineChanged")
+    it("Should deposit 100 stable with 3 different accounts before and after pool start date and emergency withdraw before pool end date (Rate: 0.52%)", async function () {
+      const rate = 0.0052;
+      await expect(lenderContract.setWithdrawRate(52))
+        .to.emit(lenderContract, "WithdrawRateChanged")
         .withArgs(0, 52);
       const amount = await toStable("100");
       for (let i = 1; i < 4; i++) {
@@ -781,7 +781,7 @@ describe("Fixed Lender Pool", function () {
       const passedPeriod = Period / 2;
       await time.increase(passedPeriod);
       const expectedBonus = 0;
-      const unroundExpectedStable = 200 - 200 * fine;
+      const unroundExpectedStable = 200 - 200 * rate;
       // need to round expected stable with 6 decimal since stable has 6 decimal
       const expectedStable =
         Math.round(unroundExpectedStable * 10 ** StableDecimal) /
