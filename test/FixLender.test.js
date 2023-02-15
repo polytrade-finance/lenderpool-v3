@@ -895,7 +895,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         await verification.setValidation(addresses[1], "0xab12", true)
       )
-        .to.emit(verification, "UserValidation")
+        .to.emit(verification, "ValidationSet")
         .withArgs(addresses[1], "0xab12", true);
       expect(await verification.isValid(addresses[1])).to.equal(true);
       await expect(lenderContract.connect(accounts[1]).deposit(amount))

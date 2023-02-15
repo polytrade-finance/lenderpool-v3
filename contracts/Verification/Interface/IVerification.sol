@@ -2,8 +2,8 @@
 pragma solidity ^0.8.17;
 
 /**
- * @author Polytrade
  * @title IVerification
+ * @author Polytrade
  */
 interface IVerification {
     struct UserStatus {
@@ -13,24 +13,23 @@ interface IVerification {
 
     /**
      * @notice Emits when a agent is set (added, removed)
-     * @param agent, address of the agent to be added or removed
-     * @param status, true if added or false if removed
+     * @param agent is the address of the agent to be added or removed
+     * @param status is true if added or false if removed
      */
     event AgentSet(address indexed agent, bool status);
 
     /**
      * @notice Emits when a user is validated or removed
-     * @param user, address of the user to be validated or removed
-     * @param provider, code of the provider (bytes2)
-     * @param status, true if added or false if removed
+     * @param user is the address of the user to be validated or removed
+     * @param provider is the code of the provider (bytes2)
+     * @param status is true if added or false if removed
      */
-    event UserValidation(address indexed user, bytes2 provider, bool status);
+    event ValidationSet(address indexed user, bytes2 provider, bool status);
 
     /**
      * @notice Returns whether a user's KYC is verified or not
-     * @dev returns a boolean if the KYC is valid
+     * @dev returns true if user's KYC is valid or false if not
      * @param user, address of the user to check
-     * @return returns true if user's KYC is valid or false if not
      */
     function isValid(address user) external view returns (bool);
 }
