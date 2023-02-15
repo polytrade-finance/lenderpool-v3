@@ -605,7 +605,7 @@ describe("Fixed Lender Pool", function () {
       expect(actualStable).to.be.equal(expectedStable);
     });
 
-    it("Should deposit 100 stable with 3 different accounts before and after pool start date and withdraw after pool end date", async function () {
+    it("Should deposit 100 stable with 3 different accounts before and after pool start date and withdraw after pool end date and decrease pool size", async function () {
       const amount = await toStable("100");
       const bonusAmount = await toBonus("1000");
       for (let i = 1; i < 4; i++) {
@@ -648,7 +648,9 @@ describe("Fixed Lender Pool", function () {
       for (let i = 1; i < 4; i++) {
         const bonusBeforeWith = await bonusToken.balanceOf(addresses[i]);
         const stableBeforeWith = await stableToken.balanceOf(addresses[i]);
+        const beforePoolSize = await lenderContract.poolSize();
         await lenderContract.connect(accounts[i]).withdraw();
+        const afterPoolSize = await lenderContract.poolSize();
         const bonusAfterWith = await bonusToken.balanceOf(addresses[i]);
         const stableAfterWith = await stableToken.balanceOf(addresses[i]);
         const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
@@ -657,11 +659,13 @@ describe("Fixed Lender Pool", function () {
         const actualStable = parseFloat(await fromStable(stableBalance));
         const expectedStable = expectedStable1st + expectedStable2nd + 200;
         const expectedBonus = expectedBonus1st + expectedBonus2nd;
+        const poolSize = beforePoolSize.sub(afterPoolSize);
         expect(actualStable).to.be.within(
           expectedStable - 0.00001,
           expectedStable
         );
         expect(actualBonus).to.be.within(expectedBonus - 0.0003, expectedBonus);
+        expect(poolSize).to.be.equal(2 * amount);
       }
     });
   });
@@ -755,9 +759,10 @@ describe("Fixed Lender Pool", function () {
       const actualStable = parseFloat(await fromStable(stableBalance));
       expect(actualBonus).to.be.equal(expectedBonus);
       expect(actualStable).to.be.equal(expectedStable);
+      expect(await lenderContract.poolSize());
     });
 
-    it("Should deposit 100 stable with 3 different accounts before and after pool start date and emergency withdraw before pool end date (Rate: 0.52%)", async function () {
+    it("Should deposit 100 stable with 3 different accounts before and after pool start date and emergency withdraw before pool end date (Rate: 0.52%) and decrease pool size", async function () {
       const rate = 0.0052;
       await expect(lenderContract.setWithdrawRate(52))
         .to.emit(lenderContract, "WithdrawRateChanged")
@@ -789,15 +794,19 @@ describe("Fixed Lender Pool", function () {
       for (let i = 1; i < 4; i++) {
         const bonusBeforeWith = await bonusToken.balanceOf(addresses[i]);
         const stableBeforeWith = await stableToken.balanceOf(addresses[i]);
+        const beforePoolSize = await lenderContract.poolSize();
         await lenderContract.connect(accounts[i]).emergencyWithdraw();
+        const afterPoolSize = await lenderContract.poolSize();
         const bonusAfterWith = await bonusToken.balanceOf(addresses[i]);
         const stableAfterWith = await stableToken.balanceOf(addresses[i]);
         const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
         const stableBalance = stableAfterWith.sub(stableBeforeWith);
+        const poolSize = beforePoolSize.sub(afterPoolSize);
         const actualBonus = parseFloat(await fromBonus(bonusBalance));
         const actualStable = parseFloat(await fromStable(stableBalance));
         expect(actualBonus).to.be.equal(expectedBonus);
         expect(actualStable).to.be.equal(expectedStable);
+        expect(poolSize).to.be.equal(2 * amount);
       }
     });
   });
