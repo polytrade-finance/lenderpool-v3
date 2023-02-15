@@ -130,8 +130,7 @@ contract FixLender is IFixLender, AccessControl {
             "You have not deposited anything"
         );
         require(block.timestamp > _poolStartDate, "Pool has not started yet");
-        uint256 calculatedBonus = _calculateBonus(msg.sender);
-        uint256 claimableBonus = calculatedBonus +
+        uint256 claimableBonus = _calculateBonus(msg.sender) +
             lenders[msg.sender].pendingBonus;
         lenders[msg.sender].pendingBonus = 0;
         lenders[msg.sender].lastClaimDate = block.timestamp > _poolEndDate
