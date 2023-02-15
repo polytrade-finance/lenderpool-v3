@@ -105,7 +105,7 @@ contract FixLender is IFixLender, AccessControl {
     function switchVerification(
         address newVerification
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newVerification != address(0));
+        require(newVerification != address(0), "Invalid Verification Address");
         address oldVerification = address(verification);
         verification = IVerification(newVerification);
         emit VerificationSwitched(oldVerification, newVerification);
