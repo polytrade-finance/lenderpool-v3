@@ -221,6 +221,10 @@ contract FixLender is IFixLender, AccessControl {
         emit WithdrawRateChanged(oldRate, newRate);
     }
 
+    /**
+     * @dev Calculates both the bonus reward and stable rewards for lender
+     * @param lender is the address of lender
+     */
     function _calculateRewards(
         address lender
     ) private view returns (uint256, uint256) {
@@ -237,6 +241,7 @@ contract FixLender is IFixLender, AccessControl {
      * @dev Calculates the bonus reward based on _bonusRate for all lender deposits
      * @dev Rewards are only applicable for the pool period duration
      * @param _lender is the address of lender
+     * @param _endDate is the end date of calculation
      */
     function _calculateBonus(
         address _lender,
@@ -256,6 +261,7 @@ contract FixLender is IFixLender, AccessControl {
      * @dev Calculates the stable reward based on _stableApr for all lender deposits
      * @dev Rewards are only applicable for the pool period duration
      * @param _lender is the address of lender
+     * @param _endDate is the end date of calculation
      */
     function _calculateStableReward(
         address _lender,
