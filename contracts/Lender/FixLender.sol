@@ -18,7 +18,7 @@ contract FixLender is IFixLender, AccessControl {
     mapping(address => Lender) public lenders;
 
     uint256 public poolSize;
-    uint256 private _withdrawRate;
+    uint256 private _withdrawPenaltyPercent;
     uint256 private constant _YEAR = 365 days;
     uint256 private immutable _stableApr;
     uint256 private immutable _bonusRate;
@@ -184,7 +184,7 @@ contract FixLender is IFixLender, AccessControl {
             "You can not emergency withdraw"
         );
         uint256 totalDeposit = lenders[msg.sender].totalDeposit;
-        uint256 withdrawFee = (totalDeposit * _withdrawRate) / 1E4;
+        uint256 withdrawFee = (totalDeposit * _withdrawPenaltyPercent) / 1E4;
         uint256 refundAmount = totalDeposit - withdrawFee;
         delete lenders[msg.sender];
         poolSize -= totalDeposit;
@@ -199,8 +199,8 @@ contract FixLender is IFixLender, AccessControl {
         uint256 newRate
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newRate < 10000, "Rate can not be more than 100%");
-        uint256 oldRate = _withdrawRate;
-        _withdrawRate = newRate;
+        uint256 oldRate = _withdrawPenaltyPercent;
+        _withdrawPenaltyPercent = newRate;
         emit WithdrawRateChanged(oldRate, newRate);
     }
 
