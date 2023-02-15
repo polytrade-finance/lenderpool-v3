@@ -4,10 +4,9 @@ pragma solidity ^0.8.17;
 interface IFixLender {
     struct Lender {
         uint256 totalDeposit;
-        uint256 pendingReward;
-        uint256 pendingBonus;
-        uint256 lastClaimDate;
-        uint256 lastDepositDate;
+        uint256 pendingStableReward;
+        uint256 pendingBonusReward;
+        uint256 lastUpdateDate;
     }
 
     /**
