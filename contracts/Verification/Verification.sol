@@ -52,13 +52,4 @@ contract Verification is IVerification, Ownable {
     function isValid(address user) external view returns (bool) {
         return (userValidation[user].status);
     }
-
-    /**
-     * @notice Returns user's provider
-     * @dev returns a bytes2 representation of the provider if valid
-     * @param user is the address of the user to check
-     */
-    function getUserProvider(address user) external view returns (bytes2) {
-        return (userValidation[user].provider);
-    }
 }

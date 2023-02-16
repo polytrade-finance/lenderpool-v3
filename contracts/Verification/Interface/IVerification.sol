@@ -6,7 +6,6 @@ pragma solidity ^0.8.17;
  * @author Polytrade
  */
 interface IVerification {
-
     /**
      * @notice Returns whether a user's KYC is verified or not
      * @dev returns true if user's KYC is valid or false if not
