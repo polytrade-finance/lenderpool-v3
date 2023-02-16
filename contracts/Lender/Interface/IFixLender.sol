@@ -4,10 +4,9 @@ pragma solidity ^0.8.17;
 interface IFixLender {
     struct Lender {
         uint256 totalDeposit;
-        uint256 pendingReward;
-        uint256 pendingBonus;
-        uint256 lastClaimDate;
-        uint256 lastDepositDate;
+        uint256 pendingStableReward;
+        uint256 pendingBonusReward;
+        uint256 lastUpdateDate;
     }
 
     /**
@@ -24,11 +23,11 @@ interface IFixLender {
     Reward lender received based on APR
     * @param bonusReward is the remaining Bonus rewards lender received based on the Rate 
     */
-    // event Withdrawn(
-    //     address indexed lender,
-    //     uint256 amount,
-    //     uint256 bonusReward
-    // );
+    event Withdrawn(
+        address indexed lender,
+        uint256 amount,
+        uint256 bonusReward
+    );
 
     /**
      * @notice Emits when lender claims Bonus rewards
@@ -38,11 +37,18 @@ interface IFixLender {
     event BonusClaimed(address indexed lender, uint256 bonusReward);
 
     /**
-     * @notice Emits when an unverified lender withdraws the principal amount after given access from owner
+     * @notice Emits when a lender tries to withdraw from pool before pool end date
      * @param lender is the address of the 'lender'
-     * @param amount is the principal amount that withdrawn by lender
+     * @param amount is the amount that withdrawn by lender
      */
-    // event PrincipalWithdrawn(address indexed lender, uint256 amount);
+    event WithdrawnEmergency(address indexed lender, uint256 amount);
+
+    /**
+     * @notice Emits when a admin change the rate for emergency withdraw fee
+     * @param oldRate is the old withdraw rate
+     * @param newRate is the new withdraw rate
+     */
+    event WithdrawRateChanged(uint256 oldRate, uint256 newRate);
 
     /**
      * @notice Emits when new verification contract is used
@@ -91,16 +97,25 @@ interface IFixLender {
      * - 'LenderPool' should have Bonus tokens more than or equal to lender accumulated bonus rewards
      * Emits {Withdrawn} event
      */
-    // function withdraw() external;
+    function withdraw() external;
 
     /**
-     * @notice Withdraws principal deposit for unverified lenders after given access from admin
+     * @notice Withdraws principal total deposit minus fee that is a percentage of total deposit
      * Requirements:
-     * - 'msg.sender' should be unverified
-     * - 'msg.sender' should have access
-     * Emits {PrincipalWithdrawn} event
+     * - Should be called before pool end date
+     * - 'msg.sender' should have deposit
+     * - Lender should have enough stable token to transfer
+     * Emits {WithdrawnEmergency} event
      */
-    // function withdrawPricinpal() external;
+    function emergencyWithdraw() external;
+
+    /**
+     * @notice Changes the withdraw rate for emergency withdraw
+     * @dev withdraw rate is in percentage with 2 decimals
+     * @param newRate is the new withdraw rate with 2 decimals
+     * Emits {WithdrawRateChanged} event
+     */
+    function setWithdrawRate(uint256 newRate) external;
 
     /**
      * @dev Changes the Verification contract that has been used for checking verification of lenders

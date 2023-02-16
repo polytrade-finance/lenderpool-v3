@@ -8,11 +8,12 @@ const {
   SampleAPR,
   SampleRate,
   DAY,
+  YEAR,
   SamplePeriod,
   MinDeposit,
   PoolMaxLimit,
 } = require("./constants/constants.helpers");
-const { now, toStable, toBonus, fromBonus } = require("./helpers");
+const { now, toStable, toBonus, fromBonus, fromStable } = require("./helpers");
 
 describe("Fixed Lender Pool", function () {
   let accounts;
@@ -519,6 +520,294 @@ describe("Fixed Lender Pool", function () {
       const bonusBalance = afterClaim.sub(beforeClaim);
       const actualBonus = parseFloat(await fromBonus(bonusBalance));
       expect(actualBonus).to.be.equal(expectedBonus);
+    });
+  });
+
+  describe("Withdraw", function () {
+    beforeEach(async function () {
+      currentTime = await now();
+      lenderContract = await LenderFactory.deploy(
+        addresses[0],
+        stableAddress,
+        bonusAddress,
+        SampleAPR,
+        SampleRate,
+        currentTime + DAY,
+        currentTime + 10 * DAY,
+        SamplePeriod,
+        MinDeposit,
+        PoolMaxLimit,
+        true
+      );
+      await lenderContract.deployed();
+    });
+
+    it("Should fail if caller has no deposit", async function () {
+      // Increase to pool start date
+      await time.increase(DAY);
+      const Period = SamplePeriod * DAY;
+      await time.increase(Period);
+      await expect(
+        lenderContract.connect(accounts[1]).withdraw()
+      ).to.be.revertedWith("You have nothing to withdraw");
+    });
+
+    it("Should fail if withdraw before pool end date", async function () {
+      const amount = await toStable("100");
+      const bonusAmount = await toBonus("100");
+      await stableToken.transfer(addresses[1], amount);
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, amount);
+      await expect(lenderContract.connect(accounts[1]).deposit(amount))
+        .to.emit(lenderContract, "Deposited")
+        .withArgs(addresses[1], amount);
+      const Period = SamplePeriod * DAY;
+      const passedPeriod = Period / 2;
+      await time.increase(passedPeriod);
+      await expect(
+        lenderContract.connect(accounts[1]).withdraw()
+      ).to.be.revertedWith("Pool has not ended yet");
+    });
+
+    it("Should withdraw all rewards + principal after pool end date", async function () {
+      const amount = await toStable("100");
+      const bonusAmount = await toBonus("100");
+      await stableToken.transfer(addresses[1], amount);
+      await stableToken.transfer(lenderContract.address, amount * 0.1);
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, amount);
+      await lenderContract.connect(accounts[1]).deposit(amount);
+      // Increase to pool start date
+      await time.increase(DAY);
+      const Period = SamplePeriod * DAY;
+      await time.increase(Period);
+      const expectedBonus = (100 * Period * (SampleRate / 100)) / Period;
+      const unroundExpectedStable =
+        (100 * Period * (SampleAPR / 10000)) / YEAR + 100;
+      // need to round expected stable with 6 decimal since stable has 6 decimal
+      const expectedStable =
+        Math.round(unroundExpectedStable * 10 ** StableDecimal) /
+        10 ** StableDecimal;
+      const bonusBeforeWith = await bonusToken.balanceOf(addresses[1]);
+      const stableBeforeWith = await stableToken.balanceOf(addresses[1]);
+      await lenderContract.connect(accounts[1]).withdraw();
+      const bonusAfterWith = await bonusToken.balanceOf(addresses[1]);
+      const stableAfterWith = await stableToken.balanceOf(addresses[1]);
+      const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
+      const stableBalance = stableAfterWith.sub(stableBeforeWith);
+      const actualBonus = parseFloat(await fromBonus(bonusBalance));
+      const actualStable = parseFloat(await fromStable(stableBalance));
+      expect(actualBonus).to.be.equal(expectedBonus);
+      expect(actualStable).to.be.equal(expectedStable);
+    });
+
+    it("Should deposit 100 stable with 3 different accounts before and after pool start date and withdraw after pool end date and decrease pool size", async function () {
+      const amount = await toStable("100");
+      const bonusAmount = await toBonus("1000");
+      for (let i = 1; i < 4; i++) {
+        await stableToken.transfer(addresses[i], 2 * amount);
+        await stableToken.transfer(lenderContract.address, 0.1 * 2 * amount);
+        await bonusToken.transfer(lenderContract.address, bonusAmount);
+        await stableToken
+          .connect(accounts[i])
+          .approve(lenderContract.address, 2 * amount);
+      }
+      for (let i = 1; i < 4; i++) {
+        await expect(lenderContract.connect(accounts[i]).deposit(amount))
+          .to.emit(lenderContract, "Deposited")
+          .withArgs(addresses[i], amount);
+      }
+      // Increase to one day after pool start date
+      await time.increase(2 * DAY);
+      for (let i = 1; i < 4; i++) {
+        await expect(lenderContract.connect(accounts[i]).deposit(amount))
+          .to.emit(lenderContract, "Deposited")
+          .withArgs(addresses[i], amount);
+      }
+      const Period = SamplePeriod * DAY;
+      const secondPeriod = (SamplePeriod - 1) * DAY;
+      await time.increase(secondPeriod);
+      const expectedBonus1st = (100 * Period * (SampleRate / 100)) / Period;
+      const expectedBonus2nd =
+        (100 * secondPeriod * (SampleRate / 100)) / Period;
+      const unroundExpectedStable1st =
+        (100 * Period * (SampleAPR / 10000)) / YEAR;
+      const unroundExpectedStable2nd =
+        (100 * secondPeriod * (SampleAPR / 10000)) / YEAR;
+      // need to round expected stable with 6 decimal since stable has 6 decimal
+      const expectedStable1st =
+        Math.round(unroundExpectedStable1st * 10 ** StableDecimal) /
+        10 ** StableDecimal;
+      const expectedStable2nd =
+        Math.round(unroundExpectedStable2nd * 10 ** StableDecimal) /
+        10 ** StableDecimal;
+      for (let i = 1; i < 4; i++) {
+        const bonusBeforeWith = await bonusToken.balanceOf(addresses[i]);
+        const stableBeforeWith = await stableToken.balanceOf(addresses[i]);
+        const beforePoolSize = await lenderContract.poolSize();
+        await lenderContract.connect(accounts[i]).withdraw();
+        const afterPoolSize = await lenderContract.poolSize();
+        const bonusAfterWith = await bonusToken.balanceOf(addresses[i]);
+        const stableAfterWith = await stableToken.balanceOf(addresses[i]);
+        const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
+        const stableBalance = stableAfterWith.sub(stableBeforeWith);
+        const actualBonus = parseFloat(await fromBonus(bonusBalance));
+        const actualStable = parseFloat(await fromStable(stableBalance));
+        const expectedStable = expectedStable1st + expectedStable2nd + 200;
+        const expectedBonus = expectedBonus1st + expectedBonus2nd;
+        const poolSize = beforePoolSize.sub(afterPoolSize);
+        expect(actualStable).to.be.within(
+          expectedStable - 0.00001,
+          expectedStable
+        );
+        expect(actualBonus).to.be.within(expectedBonus - 0.0003, expectedBonus);
+        expect(poolSize).to.be.equal(2 * amount);
+      }
+    });
+  });
+  describe("Emergency Withdraw", function () {
+    beforeEach(async function () {
+      currentTime = await now();
+      lenderContract = await LenderFactory.deploy(
+        addresses[0],
+        stableAddress,
+        bonusAddress,
+        SampleAPR,
+        SampleRate,
+        currentTime + DAY,
+        currentTime + 10 * DAY,
+        SamplePeriod,
+        MinDeposit,
+        PoolMaxLimit,
+        true
+      );
+      await lenderContract.deployed();
+    });
+
+    it("Should fail if caller has no deposit", async function () {
+      // Increase to pool start date
+      await time.increase(DAY);
+      await expect(
+        lenderContract.connect(accounts[1]).emergencyWithdraw()
+      ).to.be.revertedWith("You have nothing to withdraw");
+    });
+
+    it("Should fail to change withdraw rate to more than or equal to 100%", async function () {
+      await expect(lenderContract.setWithdrawRate(10000)).to.be.revertedWith(
+        "Rate can not be more than 100%"
+      );
+    });
+
+    it("Should fail to change withdraw rate without admin access", async function () {
+      await expect(
+        lenderContract.connect(accounts[1]).setWithdrawRate(500)
+      ).to.be.revertedWith(
+        `AccessControl: account ${addresses[1].toLowerCase()} is missing role ${ethers.utils.hexZeroPad(
+          ethers.utils.hexlify(0),
+          32
+        )}`
+      );
+    });
+
+    it("Should fail if emergency withdraw after pool end date", async function () {
+      const amount = await toStable("100");
+      // increase to pool start date
+      await time.increase(DAY);
+      await stableToken.transfer(addresses[1], amount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, amount);
+      await lenderContract.connect(accounts[1]).deposit(amount);
+      const Period = SamplePeriod * DAY;
+      const passedPeriod = Period;
+      await time.increase(passedPeriod);
+      await expect(
+        lenderContract.connect(accounts[1]).emergencyWithdraw()
+      ).to.be.revertedWith("You can not emergency withdraw");
+    });
+
+    it("Should emergency withdraw all deposits before pool end date (Rate: 0%)", async function () {
+      const amount = await toStable("100");
+      const rate = 0;
+      await stableToken.transfer(addresses[1], 2 * amount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, 2 * amount);
+      await lenderContract.connect(accounts[1]).deposit(amount);
+      // Increase to pool start date
+      await time.increase(DAY);
+      await lenderContract.connect(accounts[1]).deposit(amount);
+      const Period = SamplePeriod * DAY;
+      // increase to 10 seconds before pool end date
+      await time.increase(Period - 10);
+      const expectedStable = 200 - 200 * rate;
+      const expectedBonus = 0;
+      const bonusBeforeWith = await bonusToken.balanceOf(addresses[1]);
+      const stableBeforeWith = await stableToken.balanceOf(addresses[1]);
+      await expect(lenderContract.connect(accounts[1]).emergencyWithdraw())
+        .to.emit(lenderContract, "WithdrawnEmergency")
+        .withArgs(addresses[1], 2 * amount);
+      const bonusAfterWith = await bonusToken.balanceOf(addresses[1]);
+      const stableAfterWith = await stableToken.balanceOf(addresses[1]);
+      const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
+      const stableBalance = stableAfterWith.sub(stableBeforeWith);
+      const actualBonus = parseFloat(await fromBonus(bonusBalance));
+      const actualStable = parseFloat(await fromStable(stableBalance));
+      expect(actualBonus).to.be.equal(expectedBonus);
+      expect(actualStable).to.be.equal(expectedStable);
+      expect(await lenderContract.poolSize());
+    });
+
+    it("Should deposit 100 stable with 3 different accounts before and after pool start date and emergency withdraw before pool end date (Rate: 0.52%) and decrease pool size", async function () {
+      const rate = 0.0052;
+      await expect(lenderContract.setWithdrawRate(52))
+        .to.emit(lenderContract, "WithdrawRateChanged")
+        .withArgs(0, 52);
+      const amount = await toStable("100");
+      for (let i = 1; i < 4; i++) {
+        await stableToken.transfer(addresses[i], 2 * amount);
+        await stableToken
+          .connect(accounts[i])
+          .approve(lenderContract.address, 2 * amount);
+      }
+      for (let i = 1; i < 4; i++) {
+        await lenderContract.connect(accounts[i]).deposit(amount);
+      }
+      // Increase to one day after pool start date
+      await time.increase(2 * DAY);
+      for (let i = 1; i < 4; i++) {
+        await lenderContract.connect(accounts[i]).deposit(amount);
+      }
+      const Period = SamplePeriod * DAY;
+      const passedPeriod = Period / 2;
+      await time.increase(passedPeriod);
+      const expectedBonus = 0;
+      const unroundExpectedStable = 200 - 200 * rate;
+      // need to round expected stable with 6 decimal since stable has 6 decimal
+      const expectedStable =
+        Math.round(unroundExpectedStable * 10 ** StableDecimal) /
+        10 ** StableDecimal;
+      for (let i = 1; i < 4; i++) {
+        const bonusBeforeWith = await bonusToken.balanceOf(addresses[i]);
+        const stableBeforeWith = await stableToken.balanceOf(addresses[i]);
+        const beforePoolSize = await lenderContract.poolSize();
+        await lenderContract.connect(accounts[i]).emergencyWithdraw();
+        const afterPoolSize = await lenderContract.poolSize();
+        const bonusAfterWith = await bonusToken.balanceOf(addresses[i]);
+        const stableAfterWith = await stableToken.balanceOf(addresses[i]);
+        const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
+        const stableBalance = stableAfterWith.sub(stableBeforeWith);
+        const poolSize = beforePoolSize.sub(afterPoolSize);
+        const actualBonus = parseFloat(await fromBonus(bonusBalance));
+        const actualStable = parseFloat(await fromStable(stableBalance));
+        expect(actualBonus).to.be.equal(expectedBonus);
+        expect(actualStable).to.be.equal(expectedStable);
+        expect(poolSize).to.be.equal(2 * amount);
+      }
     });
   });
 });
