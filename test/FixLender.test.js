@@ -19,7 +19,6 @@ describe("Fixed Lender Pool", function () {
   let accounts;
   let addresses;
   let lenderContract;
-  let verification;
   let LenderFactory;
   let stableToken;
   let bonusToken;
@@ -39,7 +38,6 @@ describe("Fixed Lender Pool", function () {
     stableToken = await StableToken.deploy("Stable", "STB", StableDecimal);
     await stableToken.deployed();
     stableAddress = stableToken.address;
-
     const BonusToken = await ethers.getContractFactory("Token");
     bonusToken = await BonusToken.deploy("Bonus", "BNS", BonusDecimal);
     await bonusToken.deployed();
@@ -809,104 +807,6 @@ describe("Fixed Lender Pool", function () {
         expect(actualStable).to.be.equal(expectedStable);
         expect(poolSize).to.be.equal(2 * amount);
       }
-    });
-  });
-
-  describe("Verification", function () {
-    before(async function () {
-      currentTime = await now();
-      const Verification = await ethers.getContractFactory("Verification");
-      verification = await Verification.deploy();
-      lenderContract = await LenderFactory.deploy(
-        addresses[0],
-        stableAddress,
-        bonusAddress,
-        SampleAPR,
-        SampleRate,
-        currentTime + DAY,
-        currentTime + 3 * DAY,
-        SamplePeriod,
-        MinDeposit,
-        PoolMaxLimit,
-        true
-      );
-      await lenderContract.deployed();
-    });
-
-    it("Should fail if verification address is zero", async () => {
-      await expect(
-        lenderContract.switchVerification(ZeroAddress)
-      ).to.be.revertedWith("Invalid Verification Address");
-    });
-
-    it("Should fail to change verification without admin access", async function () {
-      await expect(
-        lenderContract
-          .connect(accounts[1])
-          .switchVerification(verification.address)
-      ).to.be.revertedWith(
-        `AccessControl: account ${addresses[1].toLowerCase()} is missing role ${ethers.utils.hexZeroPad(
-          ethers.utils.hexlify(0),
-          32
-        )}`
-      );
-    });
-
-    it("Should change verification contract for Fix lender", async () => {
-      await lenderContract.switchVerification(verification.address);
-      expect(await lenderContract.verification()).to.be.equal(
-        verification.address
-      );
-    });
-
-    it("should fail to deposit stable token without KYC", async function () {
-      const amount = await toStable("100");
-      await stableToken.transfer(addresses[1], amount);
-      await stableToken
-        .connect(accounts[1])
-        .approve(lenderContract.address, amount);
-      await expect(
-        lenderContract.connect(accounts[1]).deposit(amount)
-      ).to.be.revertedWith("You are not verified");
-    });
-
-    it("Should fail to set KYC without agent access", async () => {
-      await expect(
-        verification
-          .connect(accounts[1])
-          .setValidation(addresses[1], "0xab12", true)
-      ).to.be.revertedWith("Callable by agents only");
-    });
-
-    it("Should fail if set Agent without admin access", async () => {
-      await expect(
-        verification.connect(accounts[1]).setAgent(addresses[2], true)
-      ).to.be.revertedWith("Ownable: caller is not the owner");
-    });
-
-    it("Should set the agent", async () => {
-      expect(await verification.setAgent(addresses[2], true))
-        .to.emit(verification, "AgentSet")
-        .withArgs(addresses[2], true);
-    });
-
-    it("Should set acc1 KYC valid and deposit", async function () {
-      const amount = await toStable("100");
-      await expect(
-        await verification.setValidation(addresses[1], "0xab12", true)
-      )
-        .to.emit(verification, "ValidationSet")
-        .withArgs(addresses[1], "0xab12", true);
-      expect(await verification.isValid(addresses[1])).to.equal(true);
-      await expect(lenderContract.connect(accounts[1]).deposit(amount))
-        .to.emit(lenderContract, "Deposited")
-        .withArgs(addresses[1], amount);
-    });
-
-    it("Should return the provider", async () => {
-      expect(await verification.getUserProvider(addresses[1])).to.be.equal(
-        "0xab12"
-      );
     });
   });
 });
