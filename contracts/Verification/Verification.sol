@@ -13,6 +13,7 @@ import "contracts/Verification/Interface/IPolytradeProxy.sol";
 contract Verification is IVerification {
     IPolytradeProxy public immutable polytradeProxy;
 
+    /// @param polytradeProxy_ is the address of polytrade proxy to check with fractal registry
     constructor(address polytradeProxy_) {
         polytradeProxy = IPolytradeProxy(polytradeProxy_);
     }
