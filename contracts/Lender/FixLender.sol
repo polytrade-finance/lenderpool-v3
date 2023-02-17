@@ -37,9 +37,9 @@ contract FixLender is IFixLender, AccessControl {
     IToken private immutable _stableToken;
     IToken private immutable _bonusToken;
 
-    modifier checkKYC(address lender) {
+    modifier checkKYC() {
         if (_verificationStatus) {
-            require(verification.isValid(lender), "You are not verified");
+            require(verification.isValid(msg.sender), "You are not verified");
         }
         _;
     }
@@ -114,7 +114,7 @@ contract FixLender is IFixLender, AccessControl {
     /**
      * @dev See {IFixLender-deposit}.
      */
-    function deposit(uint256 amount) external checkKYC(msg.sender) {
+    function deposit(uint256 amount) external checkKYC {
         require(
             _poolMaxLimit >= poolSize + amount,
             "Pool has reached its limit"
