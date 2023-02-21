@@ -71,7 +71,7 @@ interface IFixLender {
      * @param oldStrategy is the address of the old staking strategy
      * @param newStrategy is the address of the new staking strategy
      */
-    // event StrategySwitched(address oldStrategy, address newStrategy);
+    event StrategySwitched(address oldStrategy, address newStrategy);
 
     /**
      * @notice Deposits an amount of stable token for a fixed lender pool
@@ -133,7 +133,7 @@ interface IFixLender {
      * @param _newStrategy is the address of the new strategy contract
      * Emits {StrategySwitched} event
      */
-    // function switchStrategy(address _newStrategy) external;
+    function switchStrategy(address _newStrategy) external;
 
     /**
      * @dev returns the deposited amount of a specific lender

@@ -1,15 +1,19 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 const {
-  StableDecimal,
   BonusDecimal,
   ZeroAddress,
+  LenderPoolAccess,
   SampleAPR,
   SampleRate,
   DAY,
   SamplePeriod,
   MinDeposit,
   PoolMaxLimit,
+  AAVEPool,
+  USDCAddress,
+  aUSDCAddress,
+  AccountToImpersonateUSDC,
 } = require("./constants/constants.helpers");
 const { now, toStable } = require("./helpers");
 
@@ -18,36 +22,45 @@ describe("Verification", function () {
   let addresses;
   let lenderContract;
   let verification;
+  let strategy;
   let polytradeProxy;
   let LenderFactory;
   let stableToken;
   let bonusToken;
-  let stableAddress;
   let bonusAddress;
   let currentTime;
+  let impersonated;
 
   before(async function () {
+    const hre = require("hardhat");
     currentTime = await now();
     accounts = await ethers.getSigners();
     addresses = accounts.map((account) => account.address);
     LenderFactory = await ethers.getContractFactory("FixLender");
-    const StableToken = await ethers.getContractFactory("Token");
-    stableToken = await StableToken.deploy("Stable", "STB", StableDecimal);
-    await stableToken.deployed();
-    stableAddress = stableToken.address;
+    await hre.network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: [AccountToImpersonateUSDC],
+    });
+    impersonated = await ethers.getSigner(AccountToImpersonateUSDC);
+    stableToken = await ethers.getContractAt("IToken", USDCAddress);
     const BonusToken = await ethers.getContractFactory("Token");
     bonusToken = await BonusToken.deploy("Bonus", "BNS", BonusDecimal);
     await bonusToken.deployed();
     bonusAddress = bonusToken.address;
+    await stableToken
+      .connect(impersonated)
+      .transfer(addresses[0], await toStable("200000"));
     const PolytradeProxy = await ethers.getContractFactory("PolytradeProxy");
     polytradeProxy = await PolytradeProxy.deploy();
     await polytradeProxy.deployed();
     const Verification = await ethers.getContractFactory("Verification");
     verification = await Verification.deploy(polytradeProxy.address);
     await verification.deployed();
+    const Strategy = await ethers.getContractFactory("Strategy");
+    strategy = await Strategy.deploy(AAVEPool, USDCAddress, aUSDCAddress);
     lenderContract = await LenderFactory.deploy(
       addresses[0],
-      stableAddress,
+      USDCAddress,
       bonusAddress,
       SampleAPR,
       SampleRate,
@@ -59,6 +72,8 @@ describe("Verification", function () {
       true
     );
     await lenderContract.deployed();
+    await lenderContract.switchStrategy(strategy.address);
+    await strategy.grantRole(LenderPoolAccess, lenderContract.address);
   });
 
   it("Should fail if verification address is zero", async () => {

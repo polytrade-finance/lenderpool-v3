@@ -5,6 +5,7 @@ const {
   StableDecimal,
   BonusDecimal,
   ZeroAddress,
+  LenderPoolAccess,
   SampleAPR,
   SampleRate,
   DAY,
@@ -12,6 +13,10 @@ const {
   SamplePeriod,
   MinDeposit,
   PoolMaxLimit,
+  AAVEPool,
+  USDCAddress,
+  aUSDCAddress,
+  AccountToImpersonateUSDC,
 } = require("./constants/constants.helpers");
 const { now, toStable, toBonus, fromBonus, fromStable } = require("./helpers");
 
@@ -20,35 +25,44 @@ describe("Fixed Lender Pool", function () {
   let addresses;
   let lenderContract;
   let LenderFactory;
+  let strategy;
   let stableToken;
   let bonusToken;
-  let stableAddress;
   let bonusAddress;
   let currentTime;
+  let impersonated;
 
   beforeEach(async function () {
     currentTime = await now();
   });
 
   before(async function () {
+    const hre = require("hardhat");
     accounts = await ethers.getSigners();
     addresses = accounts.map((account) => account.address);
     LenderFactory = await ethers.getContractFactory("FixLender");
-    const StableToken = await ethers.getContractFactory("Token");
-    stableToken = await StableToken.deploy("Stable", "STB", StableDecimal);
-    await stableToken.deployed();
-    stableAddress = stableToken.address;
+    await hre.network.provider.request({
+      method: "hardhat_impersonateAccount",
+      params: [AccountToImpersonateUSDC],
+    });
+    impersonated = await ethers.getSigner(AccountToImpersonateUSDC);
+    stableToken = await ethers.getContractAt("IToken", USDCAddress);
     const BonusToken = await ethers.getContractFactory("Token");
     bonusToken = await BonusToken.deploy("Bonus", "BNS", BonusDecimal);
     await bonusToken.deployed();
     bonusAddress = bonusToken.address;
+    await stableToken
+      .connect(impersonated)
+      .transfer(addresses[0], await toStable("200000"));
+    const Strategy = await ethers.getContractFactory("Strategy");
+    strategy = await Strategy.deploy(AAVEPool, USDCAddress, aUSDCAddress);
   });
 
   describe("Constructor", function () {
     it("Should deploy lender successfully", async function () {
       lenderContract = await LenderFactory.deploy(
         addresses[0],
-        stableAddress,
+        USDCAddress,
         bonusAddress,
         SampleAPR,
         SampleRate,
@@ -60,13 +74,15 @@ describe("Fixed Lender Pool", function () {
         false
       );
       await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
     });
 
     it("Should fail if admin address is zero", async function () {
       await expect(
         LenderFactory.deploy(
           ZeroAddress,
-          stableAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -102,7 +118,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          stableAddress,
+          USDCAddress,
           ZeroAddress,
           SampleAPR,
           SampleRate,
@@ -120,7 +136,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          stableAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -138,7 +154,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          stableAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -156,7 +172,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          stableAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -174,7 +190,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          stableAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -192,7 +208,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          stableAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -210,7 +226,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          stableAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -228,7 +244,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          stableAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -247,7 +263,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          stableAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           10001,
@@ -264,14 +280,15 @@ describe("Fixed Lender Pool", function () {
 
   describe("Deposit", function () {
     it("Should fail if lender didn't approve the same or higher stable for lender contract before deposit", async function () {
+      const amount = await toStable("1000");
+      await stableToken.transfer(addresses[1], amount);
       await expect(
-        lenderContract.connect(accounts[1]).deposit(toStable("1000"))
-      ).to.be.revertedWith("ERC20: insufficient allowance");
+        lenderContract.connect(accounts[1]).deposit(amount)
+      ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
     });
 
     it("Should deposit 1000 stable tokens before starting", async function () {
       const amount = await toStable("1000");
-      await stableToken.transfer(addresses[1], amount);
       await stableToken
         .connect(accounts[1])
         .approve(lenderContract.address, amount);
@@ -334,7 +351,7 @@ describe("Fixed Lender Pool", function () {
     it("Should deposit 1 (Min. possible amount) stable for 10 times and claim each 10 days till end of pool period", async function () {
       lenderContract = await LenderFactory.deploy(
         addresses[0],
-        stableAddress,
+        USDCAddress,
         bonusAddress,
         SampleAPR,
         SampleRate,
@@ -346,6 +363,8 @@ describe("Fixed Lender Pool", function () {
         false
       );
       await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
       const amount = await toStable("1");
       const bonusAmount = await toBonus("10");
       await stableToken.transfer(addresses[1], 10 * amount);
@@ -383,7 +402,7 @@ describe("Fixed Lender Pool", function () {
       currentTime = await now();
       lenderContract = await LenderFactory.deploy(
         addresses[0],
-        stableAddress,
+        USDCAddress,
         bonusAddress,
         SampleAPR,
         SampleRate,
@@ -395,6 +414,8 @@ describe("Fixed Lender Pool", function () {
         false
       );
       await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
     });
 
     it("Should fail if there is no deposit", async function () {
@@ -459,7 +480,7 @@ describe("Fixed Lender Pool", function () {
       currentTime = await now();
       lenderContract = await LenderFactory.deploy(
         addresses[0],
-        stableAddress,
+        USDCAddress,
         bonusAddress,
         SampleAPR,
         SampleRate,
@@ -471,6 +492,8 @@ describe("Fixed Lender Pool", function () {
         false
       );
       await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
     });
 
     it("Should deposit 100 stable with 5 different accounts for 10 times and claim each 10 days till end of pool period", async function () {
@@ -527,7 +550,7 @@ describe("Fixed Lender Pool", function () {
       currentTime = await now();
       lenderContract = await LenderFactory.deploy(
         addresses[0],
-        stableAddress,
+        USDCAddress,
         bonusAddress,
         SampleAPR,
         SampleRate,
@@ -539,6 +562,8 @@ describe("Fixed Lender Pool", function () {
         false
       );
       await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
     });
 
     it("Should fail if caller has no deposit", async function () {
@@ -673,7 +698,7 @@ describe("Fixed Lender Pool", function () {
       currentTime = await now();
       lenderContract = await LenderFactory.deploy(
         addresses[0],
-        stableAddress,
+        USDCAddress,
         bonusAddress,
         SampleAPR,
         SampleRate,
@@ -685,6 +710,8 @@ describe("Fixed Lender Pool", function () {
         false
       );
       await lenderContract.deployed();
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
+      await lenderContract.switchStrategy(strategy.address);
     });
 
     it("Should fail if caller has no deposit", async function () {
@@ -737,9 +764,12 @@ describe("Fixed Lender Pool", function () {
         .connect(accounts[1])
         .approve(lenderContract.address, 2 * amount);
       await lenderContract.connect(accounts[1]).deposit(amount);
+
       // Increase to pool start date
       await time.increase(DAY);
+
       await lenderContract.connect(accounts[1]).deposit(amount);
+
       const Period = SamplePeriod * DAY;
       // increase to 10 seconds before pool end date
       await time.increase(Period - 10);
