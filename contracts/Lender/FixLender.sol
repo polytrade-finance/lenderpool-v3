@@ -139,6 +139,7 @@ contract FixLender is IFixLender, AccessControl {
      * @dev See {IFixLender-deposit}.
      */
     function deposit(uint256 amount) external checkKYC {
+        require(address(strategy) != address(0), "There is no Strategy");
         require(
             _poolMaxLimit >= poolSize + amount,
             "Pool has reached its limit"
@@ -238,6 +239,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 refundAmount = totalDeposit - withdrawFee;
         delete lenders[msg.sender];
         poolSize -= totalDeposit;
+        strategy.withdraw(refundAmount);
         _stableToken.safeTransfer(msg.sender, refundAmount);
         emit WithdrawnEmergency(msg.sender, refundAmount);
     }
