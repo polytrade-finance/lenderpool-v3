@@ -257,6 +257,14 @@ contract FixLender is IFixLender, AccessControl {
     }
 
     /**
+     * @dev See {IFixLender-getTotalDeposit}.
+     */
+    function getTotalDeposit(address _lender) external view returns (uint256) {
+        return lenders[_lender].totalDeposit;
+    }
+
+
+    /**
      * @notice `_depositInStrategy` deposits stable token to external protocol.
      * @dev Funds will be deposited to a Strategy (external protocols) like Aave, compound
      * @param amount, total amount to be deposited.

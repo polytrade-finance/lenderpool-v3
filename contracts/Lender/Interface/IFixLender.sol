@@ -139,7 +139,7 @@ interface IFixLender {
      * @dev returns the deposited amount of a specific lender
      * @param _lender Represents the address of lender
      */
-    // function getDeposit(address _lender) external view returns (uint256);
+    function getTotalDeposit(address _lender) external view returns (uint256);
 
     /**
      * @dev returns the available Bonus rewards to claim for a specific lender
