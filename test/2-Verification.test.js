@@ -10,9 +10,9 @@ const {
   SamplePeriod,
   MinDeposit,
   PoolMaxLimit,
-  TestAAVEPool,
-  TestUSDCAddress,
-  TestaUSDCAddress,
+  AAVEPool,
+  USDCAddress,
+  aUSDCAddress,
   AccountToImpersonateUSDC,
 } = require("./constants/constants.helpers");
 const { now, toStable } = require("./helpers");
@@ -29,7 +29,7 @@ describe("Verification", function () {
   let bonusToken;
   let bonusAddress;
   let currentTime;
-  let minter;
+  let impersonated;
 
   before(async function () {
     const hre = require("hardhat");
@@ -41,19 +41,15 @@ describe("Verification", function () {
       method: "hardhat_impersonateAccount",
       params: [AccountToImpersonateUSDC],
     });
-    minter = await ethers.getSigner(AccountToImpersonateUSDC);
-    await hre.network.provider.send("hardhat_setBalance", [
-      minter.address,
-      "0x100000000000000000",
-    ]);
-    stableToken = await ethers.getContractAt("IToken", TestUSDCAddress);
+    impersonated = await ethers.getSigner(AccountToImpersonateUSDC);
+    stableToken = await ethers.getContractAt("IToken", USDCAddress);
     const BonusToken = await ethers.getContractFactory("Token");
     bonusToken = await BonusToken.deploy("Bonus", "BNS", BonusDecimal);
     await bonusToken.deployed();
     bonusAddress = bonusToken.address;
     await stableToken
-      .connect(minter)
-      .mint(addresses[0], await toStable("1000000000"));
+      .connect(impersonated)
+      .transfer(addresses[0], await toStable("200000"));
     const PolytradeProxy = await ethers.getContractFactory("PolytradeProxy");
     polytradeProxy = await PolytradeProxy.deploy();
     await polytradeProxy.deployed();
@@ -62,13 +58,13 @@ describe("Verification", function () {
     await verification.deployed();
     const Strategy = await ethers.getContractFactory("Strategy");
     strategy = await Strategy.deploy(
-      TestAAVEPool,
-      TestUSDCAddress,
-      TestaUSDCAddress
+      AAVEPool,
+      USDCAddress,
+      aUSDCAddress
     );
     lenderContract = await LenderFactory.deploy(
       addresses[0],
-      TestUSDCAddress,
+      USDCAddress,
       bonusAddress,
       SampleAPR,
       SampleRate,

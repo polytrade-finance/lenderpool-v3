@@ -13,10 +13,10 @@ const MinDeposit = 100;
 const PoolMaxLimit = 10000;
 const DAY = 1 * 60 * 60 * 24;
 const YEAR = 365 * 60 * 60 * 24;
-const TestaUSDCAddress = "0x9daBC9860F8792AeE427808BDeF1f77eFeF0f24E";
-const TestUSDCAddress = "0xe9DcE89B076BA6107Bb64EF30678efec11939234";
-const TestAAVEPool = "0x0b913A76beFF3887d35073b8e5530755D60F78C7";
-const AccountToImpersonateUSDC = "0xb00b414f9e45ba73b44ffc3e3ce64a806552cd02";
+const aUSDCAddress = "0x625E7708f30cA75bfd92586e17077590C60eb4cD";
+const USDCAddress = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
+const AAVEPool = "0x794a61358D6845594F94dc1DB02A252b5b4814aD";
+const AccountToImpersonateUSDC = "0x0D0707963952f2fBA59dD06f2b425ace40b492Fe";
 module.exports = {
   StableDecimal,
   BonusDecimal,
@@ -29,8 +29,8 @@ module.exports = {
   PoolMaxLimit,
   DAY,
   YEAR,
-  TestaUSDCAddress,
-  TestUSDCAddress,
-  TestAAVEPool,
+  aUSDCAddress,
+  USDCAddress,
+  AAVEPool,
   AccountToImpersonateUSDC,
 };

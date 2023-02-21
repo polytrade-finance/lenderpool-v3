@@ -13,9 +13,9 @@ const {
   SamplePeriod,
   MinDeposit,
   PoolMaxLimit,
-  TestAAVEPool,
-  TestUSDCAddress,
-  TestaUSDCAddress,
+  AAVEPool,
+  USDCAddress,
+  aUSDCAddress,
   AccountToImpersonateUSDC,
 } = require("./constants/constants.helpers");
 const { now, toStable, toBonus, fromBonus, fromStable } = require("./helpers");
@@ -30,7 +30,7 @@ describe("Fixed Lender Pool", function () {
   let bonusToken;
   let bonusAddress;
   let currentTime;
-  let minter;
+  let impersonated;
 
   beforeEach(async function () {
     currentTime = await now();
@@ -45,24 +45,20 @@ describe("Fixed Lender Pool", function () {
       method: "hardhat_impersonateAccount",
       params: [AccountToImpersonateUSDC],
     });
-    minter = await ethers.getSigner(AccountToImpersonateUSDC);
-    await hre.network.provider.send("hardhat_setBalance", [
-      minter.address,
-      "0x100000000000000000",
-    ]);
-    stableToken = await ethers.getContractAt("IToken", TestUSDCAddress);
+    impersonated = await ethers.getSigner(AccountToImpersonateUSDC);
+    stableToken = await ethers.getContractAt("IToken", USDCAddress);
     const BonusToken = await ethers.getContractFactory("Token");
     bonusToken = await BonusToken.deploy("Bonus", "BNS", BonusDecimal);
     await bonusToken.deployed();
     bonusAddress = bonusToken.address;
     await stableToken
-      .connect(minter)
-      .mint(addresses[0], await toStable("1000000000"));
+      .connect(impersonated)
+      .transfer(addresses[0], await toStable("200000"));
     const Strategy = await ethers.getContractFactory("Strategy");
     strategy = await Strategy.deploy(
-      TestAAVEPool,
-      TestUSDCAddress,
-      TestaUSDCAddress
+      AAVEPool,
+      USDCAddress,
+      aUSDCAddress
     );
   });
 
@@ -70,7 +66,7 @@ describe("Fixed Lender Pool", function () {
     it("Should deploy lender successfully", async function () {
       lenderContract = await LenderFactory.deploy(
         addresses[0],
-        TestUSDCAddress,
+        USDCAddress,
         bonusAddress,
         SampleAPR,
         SampleRate,
@@ -90,7 +86,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           ZeroAddress,
-          TestUSDCAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -126,7 +122,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          TestUSDCAddress,
+          USDCAddress,
           ZeroAddress,
           SampleAPR,
           SampleRate,
@@ -144,7 +140,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          TestUSDCAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -162,7 +158,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          TestUSDCAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -180,7 +176,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          TestUSDCAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -198,7 +194,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          TestUSDCAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -216,7 +212,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          TestUSDCAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -234,7 +230,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          TestUSDCAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -252,7 +248,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          TestUSDCAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           SampleRate,
@@ -271,7 +267,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         LenderFactory.deploy(
           addresses[0],
-          TestUSDCAddress,
+          USDCAddress,
           bonusAddress,
           SampleAPR,
           10001,
@@ -359,7 +355,7 @@ describe("Fixed Lender Pool", function () {
     it("Should deposit 1 (Min. possible amount) stable for 10 times and claim each 10 days till end of pool period", async function () {
       lenderContract = await LenderFactory.deploy(
         addresses[0],
-        TestUSDCAddress,
+        USDCAddress,
         bonusAddress,
         SampleAPR,
         SampleRate,
@@ -410,7 +406,7 @@ describe("Fixed Lender Pool", function () {
       currentTime = await now();
       lenderContract = await LenderFactory.deploy(
         addresses[0],
-        TestUSDCAddress,
+        USDCAddress,
         bonusAddress,
         SampleAPR,
         SampleRate,
@@ -488,7 +484,7 @@ describe("Fixed Lender Pool", function () {
       currentTime = await now();
       lenderContract = await LenderFactory.deploy(
         addresses[0],
-        TestUSDCAddress,
+        USDCAddress,
         bonusAddress,
         SampleAPR,
         SampleRate,
@@ -558,7 +554,7 @@ describe("Fixed Lender Pool", function () {
       currentTime = await now();
       lenderContract = await LenderFactory.deploy(
         addresses[0],
-        TestUSDCAddress,
+        USDCAddress,
         bonusAddress,
         SampleAPR,
         SampleRate,
@@ -706,7 +702,7 @@ describe("Fixed Lender Pool", function () {
       currentTime = await now();
       lenderContract = await LenderFactory.deploy(
         addresses[0],
-        TestUSDCAddress,
+        USDCAddress,
         bonusAddress,
         SampleAPR,
         SampleRate,

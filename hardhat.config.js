@@ -1,7 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
 
-const { PRIVATE_KEY, MUMBAI_ARCHIVAL_RPC } = process.env;
+const { PRIVATE_KEY, ARCHIVAL_RPC } = process.env;
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -10,12 +10,12 @@ module.exports = {
   networks: {
     hardhat: {
       forking: {
-        url: `${MUMBAI_ARCHIVAL_RPC}`,
+        url: `${ARCHIVAL_RPC}`,
         blockNumber: 32228672,
       },
     },
     mumbai: {
-      url: `${MUMBAI_ARCHIVAL_RPC}`,
+      url: `${ARCHIVAL_RPC}`,
       accounts: [
         `${
           PRIVATE_KEY ||

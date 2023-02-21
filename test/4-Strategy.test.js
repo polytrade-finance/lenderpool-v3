@@ -11,9 +11,9 @@ const {
   SamplePeriod,
   MinDeposit,
   PoolMaxLimit,
-  TestAAVEPool,
-  TestUSDCAddress,
-  TestaUSDCAddress,
+  AAVEPool,
+  USDCAddress,
+  aUSDCAddress,
   AccountToImpersonateUSDC,
 } = require("./constants/constants.helpers");
 const { now, toStable, toBonus, fromStable } = require("./helpers");
@@ -30,7 +30,7 @@ describe("Strategy", function () {
   let bonusToken;
   let bonusAddress;
   let currentTime;
-  let minter;
+  let impersonated;
 
   before(async function () {
     const hre = require("hardhat");
@@ -42,13 +42,9 @@ describe("Strategy", function () {
       method: "hardhat_impersonateAccount",
       params: [AccountToImpersonateUSDC],
     });
-    minter = await ethers.getSigner(AccountToImpersonateUSDC);
-    await hre.network.provider.send("hardhat_setBalance", [
-      minter.address,
-      "0x100000000000000000",
-    ]);
-    stableToken = await ethers.getContractAt("IToken", TestUSDCAddress);
-    aStableToken = await ethers.getContractAt("IToken", TestaUSDCAddress);
+    impersonated = await ethers.getSigner(AccountToImpersonateUSDC);
+    stableToken = await ethers.getContractAt("IToken", USDCAddress);
+    aStableToken = await ethers.getContractAt("IToken", aUSDCAddress);
     const BonusToken = await ethers.getContractFactory("Token");
     bonusToken = await BonusToken.deploy("Bonus", "BNS", BonusDecimal);
     await bonusToken.deployed();
@@ -56,7 +52,7 @@ describe("Strategy", function () {
     StrategyFactory = await ethers.getContractFactory("Strategy");
     lenderContract = await LenderFactory.deploy(
       addresses[0],
-      TestUSDCAddress,
+      USDCAddress,
       bonusAddress,
       SampleAPR,
       SampleRate,
@@ -69,8 +65,8 @@ describe("Strategy", function () {
     );
     await lenderContract.deployed();
     await stableToken
-      .connect(minter)
-      .mint(addresses[0], await toStable("1000000000"));
+      .connect(impersonated)
+      .transfer(addresses[0], await toStable("200000"));
   });
 
   it("Should fail to deposit without strategy", async function () {
@@ -82,9 +78,9 @@ describe("Strategy", function () {
 
   it("Should set first Strategy contract", async function () {
     strategy = await StrategyFactory.deploy(
-      TestAAVEPool,
-      TestUSDCAddress,
-      TestaUSDCAddress
+      AAVEPool,
+      USDCAddress,
+      aUSDCAddress
     );
     await strategy.deployed();
     await lenderContract.switchStrategy(strategy.address);
@@ -123,8 +119,8 @@ describe("Strategy", function () {
   it("Should increase aStable balance of strategy contract to 500 aUSDC", async function () {
     const actual = await strategy.getBalance();
     expect(parseFloat(await fromStable(actual))).to.be.within(
-      500 - 0.000001,
-      500
+      500 - 0.00001,
+      500 + 0.00001
     );
   });
 
@@ -149,9 +145,9 @@ describe("Strategy", function () {
     const oldStrategyBalance = await aStableToken.balanceOf(strategy.address);
     const oldBalance = parseFloat(await fromStable(oldStrategyBalance));
     strategy = await StrategyFactory.deploy(
-      TestAAVEPool,
-      TestUSDCAddress,
-      TestaUSDCAddress
+      AAVEPool,
+      USDCAddress,
+      aUSDCAddress
     );
     await strategy.deployed();
     await strategy.grantRole(LenderPoolAccess, lenderContract.address);
@@ -184,7 +180,7 @@ describe("Strategy", function () {
       const newSBalance = parseFloat(await fromStable(newStrategyBalance));
       const newLenderBalance = await stableToken.balanceOf(addresses[i]);
       const newLBalance = parseFloat(await fromStable(newLenderBalance));
-      expect(oldSBalance - newSBalance).to.be.equal(100);
+      expect(oldSBalance - newSBalance).to.be.within(100, 100 + 0.000001);
       expect(newLBalance - oldLBalance).to.be.equal(100);
     }
   });
@@ -198,8 +194,8 @@ describe("Strategy", function () {
       const newStrategyBalance = await aStableToken.balanceOf(strategy.address);
       const newSBalance = parseFloat(await fromStable(newStrategyBalance));
       expect(oldSBalance - newSBalance).to.be.within(
-        100 - 0.000001,
-        100 + 0.000001
+        100 - 0.00001,
+        100 + 0.00001
       );
     }
   });
