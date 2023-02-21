@@ -45,6 +45,7 @@ jobs:
         env:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           CHAINSTACK_URL: ${{ secrets.CHAINSTACK_URL }}
+          MUMBAI_ARCHIVAL_RPC: ${{ secrets.MUMBAI_ARCHIVAL_RPC }}
           POLYGONSCAN_API_KEY: ${{ secrets.POLYGONSCAN_API_KEY }}
       - name: Coveralls GitHub Action
         uses: coverallsapp/github-action@1.1.3
