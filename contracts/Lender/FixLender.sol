@@ -19,7 +19,7 @@ contract FixLender is IFixLender, AccessControl {
     using SafeERC20 for IToken;
     mapping(address => Lender) public lenders;
 
-    uint256 public poolSize;
+    uint256 private _poolSize;
     uint256 private _withdrawPenaltyPercent;
     uint256 private constant _YEAR = 365 days;
     uint256 private immutable _stableApr;
@@ -141,7 +141,7 @@ contract FixLender is IFixLender, AccessControl {
     function deposit(uint256 amount) external isValid {
         require(address(strategy) != address(0), "There is no Strategy");
         require(
-            _poolMaxLimit >= poolSize + amount,
+            _poolMaxLimit >= _poolSize + amount,
             "Pool has reached its limit"
         );
         require(amount >= _minDeposit, "Amount is less than Min. Deposit");
@@ -153,7 +153,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 pendingStableReward = lenders[msg.sender].pendingStableReward;
         uint256 pendingBonusReward = lenders[msg.sender].pendingBonusReward;
         uint256 lastUpdateDate = _poolStartDate;
-        poolSize += amount;
+        _poolSize += amount;
         if (block.timestamp > _poolStartDate) {
             (uint256 stableReward, uint256 bonusReward) = _calculateRewards(
                 msg.sender
@@ -215,7 +215,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 bonusAmount = bonusReward +
             lenders[msg.sender].pendingBonusReward;
         delete lenders[msg.sender];
-        poolSize -= totalDeposit;
+        _poolSize -= totalDeposit;
         strategy.withdraw(totalDeposit);
         _bonusToken.safeTransfer(msg.sender, bonusAmount);
         _stableToken.safeTransfer(msg.sender, stableAmount);
@@ -238,7 +238,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 withdrawFee = (totalDeposit * _withdrawPenaltyPercent) / 1E4;
         uint256 refundAmount = totalDeposit - withdrawFee;
         delete lenders[msg.sender];
-        poolSize -= totalDeposit;
+        _poolSize -= totalDeposit;
         strategy.withdraw(refundAmount);
         _stableToken.safeTransfer(msg.sender, refundAmount);
         emit WithdrawnEmergency(msg.sender, refundAmount);
@@ -263,6 +263,78 @@ contract FixLender is IFixLender, AccessControl {
         return lenders[_lender].totalDeposit;
     }
 
+    /**
+     * @dev See {IFixLender-getBonusRewards}.
+     */
+    function getBonusRewards(address _lender) external view returns (uint256) {
+        uint256 bonusReward;
+        if(block.timestamp > _poolStartDate) {
+            (, bonusReward) = _calculateRewards(_lender);
+            bonusReward += lenders[_lender].pendingBonusReward;
+        }
+        return bonusReward;
+    }
+
+    /**
+     * @dev See {IFixLender-getStableRewards}.
+     */
+    function getStableRewards(address _lender) external view returns (uint256) {
+        uint256 stableReward;
+        if(block.timestamp > _poolStartDate) {
+            (stableReward, ) = _calculateRewards(_lender);
+            stableReward += lenders[_lender].pendingStableReward;
+        }
+        return stableReward;
+    }
+
+    /**
+     * @dev See {IFixLender-getApr}.
+     */
+    function getApr() external view returns (uint256) {
+        return _stableApr;
+    }
+
+    /**
+     * @dev See {IFixLender-getBonusRate}.
+     */
+    function getBonusRate() external view returns (uint256) {
+        return _bonusRate;
+    }
+
+    /**
+     * @dev See {IFixLender-getLockingDuration}.
+     */
+    function getLockingDuration() external view returns (uint256) {
+        return _poolPeriod / 1 days;
+    }
+
+    /**
+     * @dev See {IFixLender-getPoolStartDate}.
+     */
+    function getPoolStartDate() external view returns (uint256) {
+        return _poolStartDate;
+    }
+
+    /**
+     * @dev See {IFixLender-getDepositEndDate}.
+     */
+    function getDepositEndDate() external view returns (uint256) {
+        return _poolEndDate;
+    }
+
+    /**
+     * @dev See {IFixLender-getMaxPoolSize}.
+     */
+    function getMaxPoolSize() external view returns (uint256) {
+        return _poolSize;
+    }
+
+    /**
+     * @dev See {IFixLender-getVerificationStatus}.
+     */
+    function getVerificationStatus() external view returns (bool) {
+        return _verificationStatus;
+    }
 
     /**
      * @notice `_depositInStrategy` deposits stable token to external protocol.
