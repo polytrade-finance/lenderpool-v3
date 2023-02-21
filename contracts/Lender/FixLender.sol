@@ -126,7 +126,7 @@ contract FixLender is IFixLender, AccessControl {
         require(newStrategy != address(0), "Invalid Strategy Address");
         address oldStrategy = address(strategy);
         if (oldStrategy != address(0)) {
-            uint amount = strategy.getBalance();
+            uint256 amount = strategy.getBalance();
             strategy.withdraw(amount);
             strategy = IStrategy(newStrategy);
             _depositInStrategy(amount);

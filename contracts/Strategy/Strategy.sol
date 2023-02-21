@@ -34,7 +34,7 @@ contract Strategy is IStrategy, AccessControl {
      * @param amount, total amount accepted from user and transferred to defi protocol
      * Emits {Deposited} event
      */
-    function deposit(uint amount) external onlyRole(LENDER_POOL) {
+    function deposit(uint256 amount) external onlyRole(LENDER_POOL) {
         stable.safeTransferFrom(msg.sender, address(this), amount);
         stable.safeApprove(address(aave), amount);
         aave.deposit(address(stable), amount, address(this), 0);
@@ -47,7 +47,7 @@ contract Strategy is IStrategy, AccessControl {
      * @param amount, total amount accepted from user and transferred to defi protocol
      * Emits {Withdrawn} event
      */
-    function withdraw(uint amount) external onlyRole(LENDER_POOL) {
+    function withdraw(uint256 amount) external onlyRole(LENDER_POOL) {
         aave.withdraw(address(stable), amount, msg.sender);
         emit Withdrawn(amount);
     }
@@ -56,7 +56,7 @@ contract Strategy is IStrategy, AccessControl {
      * @notice get aStable balance of staking strategy smart contract
      * @return total amount of aStable token in this contract
      */
-    function getBalance() external view returns (uint) {
+    function getBalance() external view returns (uint256) {
         return aStable.balanceOf(address(this));
     }
 }

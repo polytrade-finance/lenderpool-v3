@@ -22,7 +22,7 @@ interface IAaveLendingPool {
      **/
     function deposit(
         address asset,
-        uint amount,
+        uint256 amount,
         address onBehalfOf,
         uint16 referralCode
     ) external;
@@ -40,7 +40,7 @@ interface IAaveLendingPool {
      **/
     function withdraw(
         address asset,
-        uint amount,
+        uint256 amount,
         address to
-    ) external returns (uint);
+    ) external returns (uint256);
 }
