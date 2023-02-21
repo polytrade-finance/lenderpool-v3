@@ -672,9 +672,9 @@ describe("Fixed Lender Pool", function () {
       for (let i = 1; i < 4; i++) {
         const bonusBeforeWith = await bonusToken.balanceOf(addresses[i]);
         const stableBeforeWith = await stableToken.balanceOf(addresses[i]);
-        const beforePoolSize = await lenderContract.poolSize();
+        const beforePoolSize = await lenderContract.getMaxPoolSize();
         await lenderContract.connect(accounts[i]).withdraw();
-        const afterPoolSize = await lenderContract.poolSize();
+        const afterPoolSize = await lenderContract.getMaxPoolSize();
         const bonusAfterWith = await bonusToken.balanceOf(addresses[i]);
         const stableAfterWith = await stableToken.balanceOf(addresses[i]);
         const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
@@ -788,7 +788,7 @@ describe("Fixed Lender Pool", function () {
       const actualStable = parseFloat(await fromStable(stableBalance));
       expect(actualBonus).to.be.equal(expectedBonus);
       expect(actualStable).to.be.equal(expectedStable);
-      expect(await lenderContract.poolSize());
+      expect(await lenderContract.getMaxPoolSize());
     });
 
     it("Should deposit 100 stable with 3 different accounts before and after pool start date and emergency withdraw before pool end date (Rate: 0.52%) and decrease pool size", async function () {
@@ -823,9 +823,9 @@ describe("Fixed Lender Pool", function () {
       for (let i = 1; i < 4; i++) {
         const bonusBeforeWith = await bonusToken.balanceOf(addresses[i]);
         const stableBeforeWith = await stableToken.balanceOf(addresses[i]);
-        const beforePoolSize = await lenderContract.poolSize();
+        const beforePoolSize = await lenderContract.getMaxPoolSize();
         await lenderContract.connect(accounts[i]).emergencyWithdraw();
-        const afterPoolSize = await lenderContract.poolSize();
+        const afterPoolSize = await lenderContract.getMaxPoolSize();
         const bonusAfterWith = await bonusToken.balanceOf(addresses[i]);
         const stableAfterWith = await stableToken.balanceOf(addresses[i]);
         const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);

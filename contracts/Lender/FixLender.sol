@@ -268,7 +268,7 @@ contract FixLender is IFixLender, AccessControl {
      */
     function getBonusRewards(address _lender) external view returns (uint256) {
         uint256 bonusReward;
-        if(block.timestamp > _poolStartDate) {
+        if (block.timestamp > _poolStartDate) {
             (, bonusReward) = _calculateRewards(_lender);
             bonusReward += lenders[_lender].pendingBonusReward;
         }
@@ -280,7 +280,7 @@ contract FixLender is IFixLender, AccessControl {
      */
     function getStableRewards(address _lender) external view returns (uint256) {
         uint256 stableReward;
-        if(block.timestamp > _poolStartDate) {
+        if (block.timestamp > _poolStartDate) {
             (stableReward, ) = _calculateRewards(_lender);
             stableReward += lenders[_lender].pendingStableReward;
         }
