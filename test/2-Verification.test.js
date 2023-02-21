@@ -57,11 +57,7 @@ describe("Verification", function () {
     verification = await Verification.deploy(polytradeProxy.address);
     await verification.deployed();
     const Strategy = await ethers.getContractFactory("Strategy");
-    strategy = await Strategy.deploy(
-      AAVEPool,
-      USDCAddress,
-      aUSDCAddress
-    );
+    strategy = await Strategy.deploy(AAVEPool, USDCAddress, aUSDCAddress);
     lenderContract = await LenderFactory.deploy(
       addresses[0],
       USDCAddress,

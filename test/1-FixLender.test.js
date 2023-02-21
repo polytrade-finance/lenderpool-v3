@@ -55,11 +55,7 @@ describe("Fixed Lender Pool", function () {
       .connect(impersonated)
       .transfer(addresses[0], await toStable("200000"));
     const Strategy = await ethers.getContractFactory("Strategy");
-    strategy = await Strategy.deploy(
-      AAVEPool,
-      USDCAddress,
-      aUSDCAddress
-    );
+    strategy = await Strategy.deploy(AAVEPool, USDCAddress, aUSDCAddress);
   });
 
   describe("Constructor", function () {
