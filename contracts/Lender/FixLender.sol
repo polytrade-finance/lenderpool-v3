@@ -298,7 +298,7 @@ contract FixLender is IFixLender, AccessControl {
      * @dev See {IFixLender-getBonusRate}.
      */
     function getBonusRate() external view returns (uint256) {
-        return _bonusRate;
+        return _bonusRate / (10 ** (_bonusDecimal - _stableDecimal));
     }
 
     /**
@@ -319,14 +319,21 @@ contract FixLender is IFixLender, AccessControl {
      * @dev See {IFixLender-getDepositEndDate}.
      */
     function getDepositEndDate() external view returns (uint256) {
-        return _poolEndDate;
+        return _depositEndDate;
+    }
+
+    /**
+     * @dev See {IFixLender-getPoolSize}.
+     */
+    function getPoolSize() external view returns (uint256) {
+        return _poolSize;
     }
 
     /**
      * @dev See {IFixLender-getMaxPoolSize}.
      */
     function getMaxPoolSize() external view returns (uint256) {
-        return _poolSize;
+        return _poolMaxLimit;
     }
 
     /**

@@ -154,7 +154,7 @@ interface IFixLender {
     function getStableRewards(address _lender) external view returns (uint256);
 
     /**
-     * @dev returns the APR with 2 decimals
+     * @dev returns the APR in percentage without decimals
      */
     function getApr() external view returns (uint256);
 
@@ -177,6 +177,11 @@ interface IFixLender {
      * @dev returns the end deposit date that after that users can not deposit
      */
     function getDepositEndDate() external view returns (uint256);
+
+    /**
+     * @dev returns the current pool size
+     */
+    function getPoolSize() external view returns (uint256);
 
     /**
      * @dev returns the pool maximum size that after reaching this limit users can not deposit
