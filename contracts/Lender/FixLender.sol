@@ -5,6 +5,8 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "contracts/Token/Interface/IToken.sol";
 import "contracts/Lender/Interface/IFixLender.sol";
+import "contracts/Verification/Interface/IVerification.sol";
+import "contracts/Strategy/Interface/IStrategy.sol";
 
 /**
  * @title Fixed Lender Pool contract
@@ -32,8 +34,17 @@ contract FixLender is IFixLender, AccessControl {
     uint256 private immutable _poolMaxLimit;
     bool private immutable _verificationStatus;
 
+    IVerification public verification;
+    IStrategy public strategy;
     IToken private immutable _stableToken;
     IToken private immutable _bonusToken;
+
+    modifier isValid() {
+        if (_verificationStatus) {
+            require(verification.isValid(msg.sender), "You are not verified");
+        }
+        _;
+    }
 
     /**
      * @dev Sets the values for admin, stableToken, bonusToken, stableApr, bonusRate, bonusRate, poolStartDate,
@@ -88,9 +99,47 @@ contract FixLender is IFixLender, AccessControl {
     }
 
     /**
+     * @notice `switchVerification` updates the Verification contract address.
+     * @dev Changed verification Contract must comply with `IVerification`
+     * @param newVerification, address of the new Verification contract
+     * Emits {VerificationSwitched} event
+     */
+    function switchVerification(
+        address newVerification
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newVerification != address(0), "Invalid Verification Address");
+        address oldVerification = address(verification);
+        verification = IVerification(newVerification);
+        emit VerificationSwitched(oldVerification, newVerification);
+    }
+
+    /**
+     * @notice `switchStrategy` updates the Strategy contract address.
+     * @dev It moves all the funds from the old strategy to the new strategy.
+     * @dev Changed strategy contract must comply with `IStrategy`.
+     * @param newStrategy, address of the new staking strategy.
+     * Emits {StrategySwitched} event
+     */
+    function switchStrategy(
+        address newStrategy
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newStrategy != address(0), "Invalid Strategy Address");
+        address oldStrategy = address(strategy);
+        if (oldStrategy != address(0)) {
+            uint256 amount = strategy.getBalance();
+            strategy.withdraw(amount);
+            strategy = IStrategy(newStrategy);
+            _depositInStrategy(amount);
+        }
+        strategy = IStrategy(newStrategy);
+        emit StrategySwitched(oldStrategy, newStrategy);
+    }
+
+    /**
      * @dev See {IFixLender-deposit}.
      */
-    function deposit(uint256 amount) external {
+    function deposit(uint256 amount) external isValid {
+        require(address(strategy) != address(0), "There is no Strategy");
         require(
             _poolMaxLimit >= poolSize + amount,
             "Pool has reached its limit"
@@ -120,6 +169,7 @@ contract FixLender is IFixLender, AccessControl {
             lastUpdateDate
         );
         _stableToken.safeTransferFrom(msg.sender, address(this), amount);
+        _depositInStrategy(amount);
         emit Deposited(msg.sender, amount);
     }
 
@@ -166,6 +216,7 @@ contract FixLender is IFixLender, AccessControl {
             lenders[msg.sender].pendingBonusReward;
         delete lenders[msg.sender];
         poolSize -= totalDeposit;
+        strategy.withdraw(totalDeposit);
         _bonusToken.safeTransfer(msg.sender, bonusAmount);
         _stableToken.safeTransfer(msg.sender, stableAmount);
         emit Withdrawn(msg.sender, stableAmount, bonusAmount);
@@ -188,6 +239,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 refundAmount = totalDeposit - withdrawFee;
         delete lenders[msg.sender];
         poolSize -= totalDeposit;
+        strategy.withdraw(refundAmount);
         _stableToken.safeTransfer(msg.sender, refundAmount);
         emit WithdrawnEmergency(msg.sender, refundAmount);
     }
@@ -202,6 +254,16 @@ contract FixLender is IFixLender, AccessControl {
         uint256 oldRate = _withdrawPenaltyPercent;
         _withdrawPenaltyPercent = newRate;
         emit WithdrawRateChanged(oldRate, newRate);
+    }
+
+    /**
+     * @notice `_depositInStrategy` deposits stable token to external protocol.
+     * @dev Funds will be deposited to a Strategy (external protocols) like Aave, compound
+     * @param amount, total amount to be deposited.
+     */
+    function _depositInStrategy(uint amount) private {
+        _stableToken.approve(address(strategy), amount);
+        strategy.deposit(amount);
     }
 
     /**

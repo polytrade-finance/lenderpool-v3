@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
+/**
+ * @title IFixLender
+ * @author Polytrade
+ */
 interface IFixLender {
     struct Lender {
         uint256 totalDeposit;
@@ -56,10 +60,10 @@ interface IFixLender {
      * @param oldVerification is the old verification contract Address
      * @param newVerification is the new verification contract Address
      */
-    // event VerificationSwitched(
-    //     address oldVerification,
-    //     address newVerification
-    // );
+    event VerificationSwitched(
+        address oldVerification,
+        address newVerification
+    );
 
     /**
      * @notice Emitted when staking strategy is switched
@@ -67,7 +71,7 @@ interface IFixLender {
      * @param oldStrategy is the address of the old staking strategy
      * @param newStrategy is the address of the new staking strategy
      */
-    // event StrategySwitched(address oldStrategy, address newStrategy);
+    event StrategySwitched(address oldStrategy, address newStrategy);
 
     /**
      * @notice Deposits an amount of stable token for a fixed lender pool
@@ -122,14 +126,14 @@ interface IFixLender {
      * @param _newVerification is the address of the new verification contract
      * Emits {VerificationSwitched} event
      */
-    // function switchVerification(address _newVerification) external;
+    function switchVerification(address _newVerification) external;
 
     /**
      * @dev Changes the Strategy contract that has been used for using funds in defi protocols
      * @param _newStrategy is the address of the new strategy contract
      * Emits {StrategySwitched} event
      */
-    // function switchStrategy(address _newStrategy) external;
+    function switchStrategy(address _newStrategy) external;
 
     /**
      * @dev returns the deposited amount of a specific lender

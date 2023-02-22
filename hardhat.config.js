@@ -1,15 +1,21 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
 
-const { PRIVATE_KEY, CHAINSTACK_URL } = process.env;
+const { PRIVATE_KEY, ARCHIVAL_RPC } = process.env;
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: "0.8.17",
   settings: { optimizer: { enabled: true, runs: 200 } },
   networks: {
+    hardhat: {
+      forking: {
+        url: `${ARCHIVAL_RPC}`,
+        blockNumber: 32228672,
+      },
+    },
     mumbai: {
-      url: `${CHAINSTACK_URL}`,
+      url: `${ARCHIVAL_RPC}`,
       accounts: [
         `${
           PRIVATE_KEY ||
