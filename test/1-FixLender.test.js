@@ -932,10 +932,10 @@ describe("Fixed Lender Pool", function () {
 
     it("Should deposit 1000 stable after 1 day from start and get accumulated Bonus rewards for 2000 stable after half of period", async function () {
       const amount = await toStable("1000");
-      await stableToken.transfer(addresses[1], 2 * amount);
+      await stableToken.transfer(addresses[1], amount);
       await stableToken
         .connect(accounts[1])
-        .approve(lenderContract.address, 2 * amount);
+        .approve(lenderContract.address, amount);
       await time.increase(2 * DAY);
       await lenderContract.connect(accounts[1]).deposit(amount);
       const Period = SamplePeriod * DAY;
