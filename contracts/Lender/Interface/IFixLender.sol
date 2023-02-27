@@ -139,52 +139,57 @@ interface IFixLender {
      * @dev returns the deposited amount of a specific lender
      * @param _lender Represents the address of lender
      */
-    // function getDeposit(address _lender) external view returns (uint256);
+    function getTotalDeposit(address _lender) external view returns (uint256);
 
     /**
      * @dev returns the available Bonus rewards to claim for a specific lender
      * @param _lender Represents the address of lender
      */
-    // function getBonusRewards(address _lender) external view returns (uint256);
+    function getBonusRewards(address _lender) external view returns (uint256);
 
     /**
-     * @dev returns the available amount of stable rewards for a specific lender
+     * @dev returns the accumulated amount of stable rewards for a specific lender
      * @param _lender Represents the address of lender
      */
-    // function getStableRewards(address _lender) external view returns (uint256);
+    function getStableRewards(address _lender) external view returns (uint256);
 
     /**
-     * @dev returns the APR with 2 decimals
+     * @dev returns the APR in percentage without decimals
      */
-    // function getApr() external view returns (uint256);
+    function getApr() external view returns (uint256);
 
     /**
      * @dev returns the Rate of bonus reward with 2 decimals
      */
-    // function getRate() external view returns (uint256);
+    function getBonusRate() external view returns (uint256);
 
     /**
-     * @dev returns the duration of locking period
+     * @dev returns the duration of locking period in days
      */
-    // function getLockingDuration() external view returns (uint256);
+    function getLockingDuration() external view returns (uint256);
 
     /**
      * @dev returns pool start date that after that reward calculation begins
      */
-    // function getPoolStartDate() external view returns (uint256);
+    function getPoolStartDate() external view returns (uint256);
 
     /**
      * @dev returns the end deposit date that after that users can not deposit
      */
-    // function getDepositEndDate() external view returns (uint256);
+    function getDepositEndDate() external view returns (uint256);
+
+    /**
+     * @dev returns the current pool size
+     */
+    function getPoolSize() external view returns (uint256);
 
     /**
      * @dev returns the pool maximum size that after reaching this limit users can not deposit
      */
-    // function getMaxPoolSize() external view returns (uint256);
+    function getMaxPoolSize() external view returns (uint256);
 
     /**
      * @dev returns the require verification status of lender pool
      */
-    // function getVerificationStatus() external view returns (bool);
+    function getVerificationStatus() external view returns (bool);
 }

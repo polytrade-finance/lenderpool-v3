@@ -672,9 +672,9 @@ describe("Fixed Lender Pool", function () {
       for (let i = 1; i < 4; i++) {
         const bonusBeforeWith = await bonusToken.balanceOf(addresses[i]);
         const stableBeforeWith = await stableToken.balanceOf(addresses[i]);
-        const beforePoolSize = await lenderContract.poolSize();
+        const beforePoolSize = await lenderContract.getPoolSize();
         await lenderContract.connect(accounts[i]).withdraw();
-        const afterPoolSize = await lenderContract.poolSize();
+        const afterPoolSize = await lenderContract.getPoolSize();
         const bonusAfterWith = await bonusToken.balanceOf(addresses[i]);
         const stableAfterWith = await stableToken.balanceOf(addresses[i]);
         const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
@@ -788,7 +788,7 @@ describe("Fixed Lender Pool", function () {
       const actualStable = parseFloat(await fromStable(stableBalance));
       expect(actualBonus).to.be.equal(expectedBonus);
       expect(actualStable).to.be.equal(expectedStable);
-      expect(await lenderContract.poolSize());
+      expect(await lenderContract.getPoolSize());
     });
 
     it("Should deposit 100 stable with 3 different accounts before and after pool start date and emergency withdraw before pool end date (Rate: 0.52%) and decrease pool size", async function () {
@@ -823,9 +823,9 @@ describe("Fixed Lender Pool", function () {
       for (let i = 1; i < 4; i++) {
         const bonusBeforeWith = await bonusToken.balanceOf(addresses[i]);
         const stableBeforeWith = await stableToken.balanceOf(addresses[i]);
-        const beforePoolSize = await lenderContract.poolSize();
+        const beforePoolSize = await lenderContract.getPoolSize();
         await lenderContract.connect(accounts[i]).emergencyWithdraw();
-        const afterPoolSize = await lenderContract.poolSize();
+        const afterPoolSize = await lenderContract.getPoolSize();
         const bonusAfterWith = await bonusToken.balanceOf(addresses[i]);
         const stableAfterWith = await stableToken.balanceOf(addresses[i]);
         const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
@@ -837,6 +837,150 @@ describe("Fixed Lender Pool", function () {
         expect(actualStable).to.be.equal(expectedStable);
         expect(poolSize).to.be.equal(2 * amount);
       }
+    });
+  });
+
+  describe("Getter funtions", function () {
+    let startDate;
+    before(async function () {
+      currentTime = await now();
+      startDate = currentTime + DAY;
+      lenderContract = await LenderFactory.deploy(
+        addresses[0],
+        USDCAddress,
+        bonusAddress,
+        SampleAPR,
+        SampleRate,
+        currentTime + DAY,
+        currentTime + 10 * DAY,
+        SamplePeriod,
+        MinDeposit,
+        PoolMaxLimit,
+        false
+      );
+      await lenderContract.deployed();
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
+      await lenderContract.switchStrategy(strategy.address);
+    });
+
+    it("Should get max pool size", async function () {
+      expect(
+        await lenderContract.connect(accounts[1]).getMaxPoolSize()
+      ).to.be.equal(PoolMaxLimit * 10 ** StableDecimal);
+    });
+
+    it("Should get Pool Start Date", async function () {
+      const poolStartDate = startDate;
+      expect(
+        await lenderContract.connect(accounts[1]).getPoolStartDate()
+      ).to.be.equal(poolStartDate);
+    });
+
+    it("Should get Deposit End Date", async function () {
+      const depositEndDate = startDate + 9 * DAY;
+      expect(
+        await lenderContract.connect(accounts[1]).getDepositEndDate()
+      ).to.be.equal(depositEndDate);
+    });
+
+    it("Should get verification status of pool", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).getVerificationStatus()
+      ).to.be.equal(false);
+    });
+
+    it("Should get Locking Duration of pool", async function () {
+      const lockingDuration = SamplePeriod;
+      expect(
+        await lenderContract.connect(accounts[2]).getLockingDuration()
+      ).to.be.equal(lockingDuration);
+    });
+
+    it("Should get APR for stable rewards", async function () {
+      expect(await lenderContract.connect(accounts[2]).getApr()).to.be.equal(
+        SampleAPR / 100
+      );
+    });
+
+    it("Should get Bonus Rate for Bonus rewards", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).getBonusRate()
+      ).to.be.equal(SampleRate);
+    });
+
+    it("Should get total deposit after depositing 1000 stable tokens before starting", async function () {
+      const amount = await toStable("1000");
+      await stableToken.transfer(addresses[1], amount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, amount);
+      await lenderContract.connect(accounts[1]).deposit(amount);
+      expect(await lenderContract.getTotalDeposit(addresses[1])).to.be.equal(
+        amount
+      );
+    });
+
+    it("Should get 0 accumulated Bonus rewards before pool strat date", async function () {
+      expect(await lenderContract.getBonusRewards(addresses[1])).to.be.equal(0);
+    });
+
+    it("Should get 0 accumulated stable rewards before pool strat date", async function () {
+      expect(await lenderContract.getStableRewards(addresses[1])).to.be.equal(
+        0
+      );
+    });
+
+    it("Should deposit 1000 stable after 1 day from start and get accumulated Bonus rewards for 2000 stable after half of period", async function () {
+      const amount = await toStable("1000");
+      await stableToken.transfer(addresses[1], amount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, amount);
+      await time.increase(2 * DAY);
+      await lenderContract.connect(accounts[1]).deposit(amount);
+      const Period = SamplePeriod * DAY;
+      // half of period passed minus the first day that already passed
+      const passedPeriod = Period / 2 - DAY;
+      await time.increase(passedPeriod);
+      const firstExpectedBonus =
+        (1000 * passedPeriod * (SampleRate / 100)) / Period;
+      const secondExpectedBonus =
+        (1000 * (Period / 2) * (SampleRate / 100)) / Period;
+      const expectedBonus = firstExpectedBonus + secondExpectedBonus;
+      const actualBonus = await lenderContract.getBonusRewards(addresses[1]);
+      expect(parseFloat(await fromBonus(actualBonus))).to.be.within(
+        expectedBonus,
+        expectedBonus + 0.01
+      );
+    });
+
+    it("Should get accumulated Bonus rewards for 2000 stable after end of period", async function () {
+      const Period = SamplePeriod * DAY;
+      // half of period passed
+      const passedPeriod = Period / 2;
+      await time.increase(passedPeriod);
+      const firstExpectedBonus =
+        (1000 * (Period - DAY) * (SampleRate / 100)) / Period;
+      const secondExpectedBonus = (1000 * Period * (SampleRate / 100)) / Period;
+      const expectedBonus = firstExpectedBonus + secondExpectedBonus;
+      const actualBonus = await lenderContract.getBonusRewards(addresses[1]);
+      expect(parseFloat(await fromBonus(actualBonus))).to.be.within(
+        expectedBonus - 0.01,
+        expectedBonus
+      );
+    });
+
+    it("Should get accumulated Stable rewards for 2000 stable after end of period", async function () {
+      const Period = SamplePeriod * DAY;
+      const firstExpectedStable =
+        (1000 * (Period - DAY) * (SampleAPR / 10000)) / YEAR;
+      const secondExpectedStable = (1000 * Period * (SampleAPR / 10000)) / YEAR;
+      const expectedStable = firstExpectedStable + secondExpectedStable;
+      const actualStable = await lenderContract.getStableRewards(addresses[1]);
+      expect(parseFloat(await fromStable(actualStable))).to.be.within(
+        expectedStable - 0.0001,
+        expectedStable
+      );
     });
   });
 });

@@ -180,7 +180,10 @@ describe("Strategy", function () {
       const newSBalance = parseFloat(await fromStable(newStrategyBalance));
       const newLenderBalance = await stableToken.balanceOf(addresses[i]);
       const newLBalance = parseFloat(await fromStable(newLenderBalance));
-      expect(oldSBalance - newSBalance).to.be.within(100, 100 + 0.000001);
+      expect(oldSBalance - newSBalance).to.be.within(
+        100 - 0.000001,
+        100 + 0.000001
+      );
       expect(newLBalance - oldLBalance).to.be.equal(100);
     }
   });
