@@ -12,7 +12,7 @@ import "contracts/Lender/Interface/IFlexLender.sol";
  * @notice Users can deposit in Flexible lender pool without locking period or with locking period by their choice
  * @dev The contract is in development stage
  */
-abstract contract FlexLender is IFlexLender, AccessControl {
+contract FlexLender is IFlexLender, AccessControl {
     using SafeERC20 for IToken;
     mapping(address => Lender) public lenders;
     RateInfo[] public aprRounds;
