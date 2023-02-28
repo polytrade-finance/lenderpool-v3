@@ -15,9 +15,10 @@ import "contracts/Lender/Interface/IFlexLender.sol";
 contract FlexLender is IFlexLender, AccessControl {
     using SafeERC20 for IToken;
     mapping(address => Lender) public lenders;
-    RateInfo[] public aprRounds;
-    RateInfo[] public rateRounds;
+    RoundInfo[] public aprRounds;
+    RoundInfo[] public rateRounds;
 
+    uint256 public poolSize;
     uint256 private immutable _stableDecimal;
     uint256 private immutable _bonusDecimal;
     uint256 private immutable _minDeposit;
@@ -52,5 +53,65 @@ contract FlexLender is IFlexLender, AccessControl {
         _bonusDecimal = _bonusToken.decimals();
         _minDeposit = minDeposit_ * (10 ** _stableDecimal);
         _poolMaxLimit = poolMaxLimit_ * (10 ** _stableDecimal);
+    }
+
+    /**
+     * @dev See {IFlexLender-changeBaseApr}.
+     */
+    function changeBaseApr(
+        uint256 baseStableApr
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint256 currentRound = aprRounds.length;
+        uint256 oldApr = currentRound != 0
+            ? aprRounds[currentRound - 1].rate
+            : 0;
+        uint256 newApr = baseStableApr / 1E2;
+        aprRounds.push(RoundInfo(newApr, block.timestamp));
+        emit BaseAprChanged(oldApr, newApr);
+    }
+
+    /**
+     * @dev See {IFlexLender-changeBaseRate}.
+     */
+    function changeBaseRate(
+        uint256 baseBonusRate
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(baseBonusRate <= 10000, "Invalid Bonus Rate");
+        uint256 currentRound = rateRounds.length;
+        uint256 oldRate = currentRound != 0
+            ? rateRounds[currentRound - 1].rate
+            : 0;
+        uint256 newRate = baseBonusRate *
+            (10 ** (_bonusDecimal - _stableDecimal));
+        rateRounds.push(RoundInfo(newRate, block.timestamp));
+        emit BaseRateChanged(oldRate, newRate);
+    }
+
+    /**
+     * @dev See {IFlexLender-deposit}.
+     */
+    function deposit(uint256 amount) external {
+        require(amount >= _minDeposit, "Amount is less than Min. Deposit");
+        require(
+            _poolMaxLimit >= poolSize + amount,
+            "Pool has reached its limit"
+        );
+        uint256 currentDeposit = lenders[msg.sender].deposits[0].amount;
+        uint256 currentApr = aprRounds.length != 0
+            ? aprRounds[aprRounds.length - 1].rate
+            : 0;
+        uint256 currentRate = rateRounds.length != 0
+            ? rateRounds[rateRounds.length - 1].rate
+            : 0;
+        poolSize += amount;
+        lenders[msg.sender].deposits[0] = Deposit(
+            currentDeposit + amount,
+            currentApr,
+            currentRate,
+            0,
+            block.timestamp
+        );
+        _stableToken.safeTransferFrom(msg.sender, address(this), amount);
+        emit Deposited(msg.sender, 0, amount, 0, currentApr, currentRate);
     }
 }
