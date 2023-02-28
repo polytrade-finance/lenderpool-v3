@@ -44,5 +44,5 @@ module.exports = {
   p3Apr,
   p1Rate,
   p2Rate,
-  p3Rate
+  p3Rate,
 };
