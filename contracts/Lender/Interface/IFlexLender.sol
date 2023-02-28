@@ -18,7 +18,7 @@ interface IFlexLender {
         uint256 lastClaimDate;
     }
 
-    struct RateInfo {
+    struct RoundInfo {
         uint256 rate;
         uint256 startDate;
         uint256 endDate;
