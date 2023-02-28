@@ -5,7 +5,9 @@ const LenderPoolAccess = ethers.utils.keccak256(
   ethers.utils.toUtf8Bytes("LENDER_POOL")
 );
 const SampleAPR = 1000; // 10.00%
+const SampleAPR2 = 2000; // 10.00%
 const SampleRate = 100; // 1.00
+const SampleRate2 = 200; // 1.00
 const StableDecimal = 6;
 const BonusDecimal = 18;
 const SamplePeriod = 90; // 90 days
@@ -29,7 +31,9 @@ module.exports = {
   ZeroAddress,
   LenderPoolAccess,
   SampleAPR,
+  SampleAPR2,
   SampleRate,
+  SampleRate2,
   SamplePeriod,
   MinDeposit,
   PoolMaxLimit,
