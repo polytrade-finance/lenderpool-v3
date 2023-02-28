@@ -12,6 +12,12 @@ const {
   SampleRate,
   SampleRate2,
   StableDecimal,
+  p1Apr,
+  p2Apr,
+  p3Apr,
+  p1Rate,
+  p2Rate,
+  p3Rate,
 } = require("./constants/constants.helpers");
 const { toStable, toRate, toApr } = require("./helpers");
 
@@ -20,6 +26,8 @@ describe("Flexible Lender Pool", function () {
   let addresses;
   let lenderContract;
   let LenderFactory;
+  let aprCurve;
+  let rateCurve;
   let stableToken;
   let bonusToken;
   let bonusAddress;
@@ -43,6 +51,9 @@ describe("Flexible Lender Pool", function () {
     await stableToken
       .connect(impersonated)
       .transfer(addresses[0], await toStable("200000"));
+    const CurveFactory = await ethers.getContractFactory("BondingCurve");
+    aprCurve = await CurveFactory.deploy(p1Apr, p2Apr, p3Apr, 6);
+    rateCurve = await CurveFactory.deploy(p1Rate, p2Rate, p3Rate, 6);
   });
 
   describe("Constructor", function () {
@@ -118,25 +129,7 @@ describe("Flexible Lender Pool", function () {
     });
   });
 
-  describe("Deposit", function () {
-    it("Should fail if lender didn't approve the same or higher stable for lender contract before deposit", async function () {
-      const amount = await toStable("1000");
-      await stableToken.transfer(addresses[1], amount);
-      await expect(
-        lenderContract.connect(accounts[1]).deposit(amount)
-      ).to.be.revertedWith("ERC20: transfer amount exceeds allowance");
-    });
-
-    it("Should deposit 1000 stable tokens before setting rate and apr", async function () {
-      const amount = await toStable("1000");
-      await stableToken
-        .connect(accounts[1])
-        .approve(lenderContract.address, amount);
-      await expect(lenderContract.connect(accounts[1]).deposit(amount))
-        .to.emit(lenderContract, "Deposited")
-        .withArgs(addresses[1], 0, amount, 0, 0, 0);
-    });
-
+  describe("Initialize", function () {
     it("Should fail to set base Apr without admin access", async function () {
       await expect(
         lenderContract.connect(accounts[1]).changeBaseApr(SampleAPR)
@@ -178,53 +171,6 @@ describe("Flexible Lender Pool", function () {
         .withArgs(0, await toRate(SampleRate, BonusDecimal, StableDecimal));
     });
 
-    it("Should deposit 1000 stable tokens after setting apr and rate", async function () {
-      const amount = await toStable("1000");
-      await stableToken.transfer(addresses[1], amount);
-      await stableToken
-        .connect(accounts[1])
-        .approve(lenderContract.address, amount);
-      await expect(lenderContract.connect(accounts[1]).deposit(amount))
-        .to.emit(lenderContract, "Deposited")
-        .withArgs(
-          addresses[1],
-          0,
-          amount,
-          0,
-          await toApr(SampleAPR),
-          await toRate(SampleRate, BonusDecimal, StableDecimal)
-        );
-    });
-
-    it("Should fail if deposit amount is less than Min. deposit", async function () {
-      const deposit = (MinDeposit - 1).toString();
-      await stableToken
-        .connect(accounts[1])
-        .approve(lenderContract.address, toStable(deposit));
-      await expect(
-        lenderContract.connect(accounts[1]).deposit(toStable(deposit))
-      ).to.be.revertedWith("Amount is less than Min. Deposit");
-    });
-
-    it("Should not increase pool Size if stable tokens transfer directly to contract", async function () {
-      const poolBeforeTransfer = await lenderContract.poolSize();
-      await stableToken.transfer(
-        lenderContract.address,
-        toStable(`${PoolMaxLimit}`)
-      );
-      const poolAfterTransfer = await lenderContract.poolSize();
-      expect(poolBeforeTransfer).to.be.equal(poolAfterTransfer);
-    });
-
-    it("Should fail if deposit amount + pool size pass the Pool Max. Limit", async function () {
-      await stableToken
-        .connect(accounts[1])
-        .approve(lenderContract.address, toStable(`${PoolMaxLimit}`));
-      await expect(
-        lenderContract.connect(accounts[1]).deposit(toStable(`${PoolMaxLimit}`))
-      ).to.be.revertedWith("Pool has reached its limit");
-    });
-
     it("Should change base Apr", async function () {
       await expect(lenderContract.changeBaseApr(SampleAPR2))
         .to.emit(lenderContract, "BaseAprChanged")
@@ -238,6 +184,56 @@ describe("Flexible Lender Pool", function () {
           await toRate(SampleRate, BonusDecimal, StableDecimal),
           await toRate(SampleRate2, BonusDecimal, StableDecimal)
         );
+    });
+
+    it("Should fail to set Apr Bonding Curve without admin access", async function () {
+      await expect(
+        lenderContract
+          .connect(accounts[1])
+          .switchAprBondingCurve(aprCurve.address)
+      ).to.be.revertedWith(
+        `AccessControl: account ${addresses[1].toLowerCase()} is missing role ${ethers.utils.hexZeroPad(
+          ethers.utils.hexlify(0),
+          32
+        )}`
+      );
+    });
+
+    it("Should fail to set Rate Bonding Curve without admin access", async function () {
+      await expect(
+        lenderContract
+          .connect(accounts[1])
+          .switchRateBondingCurve(rateCurve.address)
+      ).to.be.revertedWith(
+        `AccessControl: account ${addresses[1].toLowerCase()} is missing role ${ethers.utils.hexZeroPad(
+          ethers.utils.hexlify(0),
+          32
+        )}`
+      );
+    });
+
+    it("Should fail to set zero address for apr bonding curve", async function () {
+      await expect(
+        lenderContract.switchAprBondingCurve(ZeroAddress)
+      ).to.be.revertedWith("Invalid Curve Address");
+    });
+
+    it("Should fail to set zero address for rate bonding curve", async function () {
+      await expect(
+        lenderContract.switchRateBondingCurve(ZeroAddress)
+      ).to.be.revertedWith("Invalid Curve Address");
+    });
+
+    it("Should set Apr bonding Curve", async function () {
+      await expect(lenderContract.switchAprBondingCurve(aprCurve.address))
+        .to.emit(lenderContract, "AprBondingCurveSwitched")
+        .withArgs(ZeroAddress, aprCurve.address);
+    });
+
+    it("Should set Rate bonding Curve", async function () {
+      await expect(lenderContract.switchRateBondingCurve(rateCurve.address))
+        .to.emit(lenderContract, "RateBondingCurveSwitched")
+        .withArgs(ZeroAddress, rateCurve.address);
     });
   });
 });

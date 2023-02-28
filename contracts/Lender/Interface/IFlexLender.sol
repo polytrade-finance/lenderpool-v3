@@ -22,6 +22,7 @@ interface IFlexLender {
         uint256 rate;
         uint256 startDate;
     }
+
     /**
      * @notice Emits when new fund is deposited to the Lender Pool
      * @param lender is the address of the `lender`
@@ -31,14 +32,14 @@ interface IFlexLender {
      * @param apr is the deposit APR for calculating stable rewards
      * @param rate is the deposit Rate for calculating Trade rewards
      */
-    event Deposited(
-        address indexed lender,
-        uint256 id,
-        uint256 amount,
-        uint256 lockingDuration,
-        uint256 apr,
-        uint256 rate
-    );
+    // event Deposited(
+    //     address indexed lender,
+    //     uint256 id,
+    //     uint256 amount,
+    //     uint256 lockingDuration,
+    //     uint256 apr,
+    //     uint256 rate
+    // );
 
     /**
      * @notice Emits when deposited funds withdrawn from the Lender Pool
@@ -106,10 +107,10 @@ interface IFlexLender {
      * @param oldBondingCurve is the address of the old staking strategy
      * @param newBondingCurve is the address of the new staking strategy
      */
-    // event AprBondingCurveSwitched(
-    //     address oldBondingCurve,
-    //     address newBondingCurve
-    // );
+    event AprBondingCurveSwitched(
+        address oldBondingCurve,
+        address newBondingCurve
+    );
 
     /**
      * @notice Emitted when Rate bonding curve is switched
@@ -117,10 +118,10 @@ interface IFlexLender {
      * @param oldBondingCurve is the address of the old staking strategy
      * @param newBondingCurve is the address of the new staking strategy
      */
-    // event RateBondingCurveSwitched(
-    //     address oldBondingCurve,
-    //     address newBondingCurve
-    // );
+    event RateBondingCurveSwitched(
+        address oldBondingCurve,
+        address newBondingCurve
+    );
 
     /**
      * @notice Emits when new APR is changed for base pool
@@ -155,7 +156,7 @@ interface IFlexLender {
      * - `amount` must be approved from the stable token contract for the LenderPool
      * Emits {Deposited} event
      */
-    function deposit(uint256 amount) external;
+    // function deposit(uint256 amount) external;
 
     /**
      * @notice Deposits an amount of stable token for a locking period in the dynamic lender pool
@@ -177,7 +178,7 @@ interface IFlexLender {
      * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
      * Emits {Claimed} event
      */
-    function claimBonus() external;
+    // function claimBonus() external;
 
     /**
      * @notice Claims the bonus rewards to the lender for a specific deposit
@@ -216,7 +217,7 @@ interface IFlexLender {
      * @param _newCurve is the address of new Bonding curve
      * Emits {AprBondingCurveSwitched} event
      */
-    // function switchAprBondingCurve(address _newCurve) external;
+    function switchAprBondingCurve(address _newCurve) external;
 
     /**
      * @dev Changes the Bonding Curve that calculates the Rate for different locking periods and
@@ -224,7 +225,7 @@ interface IFlexLender {
      * @param _newCurve is the address of new Bonding curve
      * Emits {RateBondingCurveSwitched} event
      */
-    // function switchRateBondingCurve(address _newCurve) external;
+    function switchRateBondingCurve(address _newCurve) external;
 
     /**
      * @dev Changes the the APR for deposits without locking period
@@ -271,7 +272,7 @@ interface IFlexLender {
      * @dev returns the all deposited amount of a specific lender
      * @param _lender Represents the address of lender
      */
-    function getTotalDeposit(address _lender) external view returns (uint256);
+    // function getTotalDeposit(address _lender) external view returns (uint256);
 
     /**
      * @dev returns the deposited amount of a specific lender and deposit
@@ -287,7 +288,7 @@ interface IFlexLender {
      * @dev returns all the available bonus rewards to claim for a specific lender and deposit
      * @param _lender Represents the address of lender
      */
-    function getBonusRewards(address _lender) external view returns (uint256);
+    // function getBonusRewards(address _lender) external view returns (uint256);
 
     /**
      * @dev returns the available bonus rewards to claim for a specific lender and deposit
@@ -303,7 +304,7 @@ interface IFlexLender {
      * @dev returns all the accumulated amount of stable rewards for a specific lender
      * @param _lender Represents the address of lender
      */
-    function getStableRewards(address _lender) external view returns (uint256);
+    // function getStableRewards(address _lender) external view returns (uint256);
 
     /**
      * @dev returns the accumulated amount of stable rewards for a specific lender and depsoit
