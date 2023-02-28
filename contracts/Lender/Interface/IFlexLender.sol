@@ -10,7 +10,6 @@ interface IFlexLender {
     }
 
     struct Deposit {
-        uint256 id;
         uint256 amount;
         uint256 rate;
         uint256 apr;
@@ -18,10 +17,9 @@ interface IFlexLender {
         uint256 startDate;
     }
 
-    struct RateInfo {
+    struct RoundInfo {
         uint256 rate;
         uint256 startDate;
-        uint256 endDate;
     }
     /**
      * @notice Emits when new fund is deposited to the Lender Pool
@@ -32,14 +30,14 @@ interface IFlexLender {
      * @param apr is the deposit APR for calculating stable rewards
      * @param rate is the deposit Rate for calculating Trade rewards
      */
-    // event Deposited(
-    //     address indexed lender,
-    //     uint256 id,
-    //     uint256 amount,
-    //     uint256 lockingDuration,
-    //     uint256 apr,
-    //     uint256 rate
-    // );
+    event Deposited(
+        address indexed lender,
+        uint256 id,
+        uint256 amount,
+        uint256 lockingDuration,
+        uint256 apr,
+        uint256 rate
+    );
 
     /**
      * @notice Emits when deposited funds withdrawn from the Lender Pool
@@ -129,7 +127,7 @@ interface IFlexLender {
      * @param oldAPR is the old APR contract percentage without decimals
      * @param newAPR is the new APR contract percentage without decimals
      */
-    // event BaseAprChanged(address oldAPR, address newAPR);
+    event BaseAprChanged(uint256 oldAPR, uint256 newAPR);
 
     /**
      * @notice Emits when new rate is set for base pool
@@ -137,7 +135,7 @@ interface IFlexLender {
      * @param oldRate is the old rate for calculating bonus rewards with 2 decimals
      * @param newRate is the new rate for calculating bonus rewards with 2 decimals
      */
-    // event BaseRateChanged(uint256 oldRate, uint256 newRate);
+    event BaseRateChanged(uint256 oldRate, uint256 newRate);
 
     /**
      * @notice Emits when new limit is set for flexible lender pool
@@ -150,13 +148,13 @@ interface IFlexLender {
     /**
      * @notice Deposits an amount of stable token without locking period in the base lender pool
      * @dev It transfers the approved stable tokens from msg.sender to lender pool
-     * @param _amount Represents the amount of tokens to deposit
+     * @param amount Represents the amount of tokens to deposit
      * Requirements:
-     * - `_amount` should be greater than zero
-     * - `_amount` must be approved from the stable token contract for the LenderPool
+     * - `amount` should be greater than zero
+     * - `amount` must be approved from the stable token contract for the LenderPool
      * Emits {Deposited} event
      */
-    // function deposit(uint256 _amount) external;
+    function deposit(uint256 amount) external;
 
     /**
      * @notice Deposits an amount of stable token for a locking period in the dynamic lender pool
@@ -223,14 +221,14 @@ interface IFlexLender {
      * @param _newApr is the new APR in percentage without decimals
      * Emits {BaseAprChanged} event
      */
-    // function changeBaseApr(uint256 _newApr) external;
+    function changeBaseApr(uint256 _newApr) external;
 
     /**
      * @dev Changes the Rate that calculates bonus rewards and affects the future deposits
      * @param _newRate is the new rate with 2 decimals
      * Emits {BaseRateChanged} event
      */
-    // function changeBaseRate(uint256 _newRate) external;
+    function changeBaseRate(uint256 _newRate) external;
 
     /**
      * @dev Changes the maximum limit of deposit allowed for flexible pool
