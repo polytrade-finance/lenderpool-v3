@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "contracts/Token/Interface/IToken.sol";
 import "contracts/Lender/Interface/IFlexLender.sol";
+import "contracts/BondingCurve/Interface/IBondingCurve.sol";
 
 /**
  * @title Flexible Lender Pool contract
@@ -26,6 +27,8 @@ contract FlexLender is IFlexLender, AccessControl {
 
     IToken private immutable _stableToken;
     IToken private immutable _bonusToken;
+    IBondingCurve private _aprBondingCurve;
+    IBondingCurve private _rateBondingCurve;
 
     /**
      * @dev Sets the values for admin, stableToken, bonusToken, minDeposit,PoolMaxLimit
@@ -88,30 +91,26 @@ contract FlexLender is IFlexLender, AccessControl {
     }
 
     /**
-     * @dev See {IFlexLender-deposit}.
+     * @dev See {IFlexLender-switchAprBondingCurve}.
      */
-    function deposit(uint256 amount) external {
-        require(amount >= _minDeposit, "Amount is less than Min. Deposit");
-        require(
-            _poolMaxLimit >= poolSize + amount,
-            "Pool has reached its limit"
-        );
-        uint256 currentDeposit = lenders[msg.sender].deposits[0].amount;
-        uint256 currentApr = aprRounds.length != 0
-            ? aprRounds[aprRounds.length - 1].rate
-            : 0;
-        uint256 currentRate = rateRounds.length != 0
-            ? rateRounds[rateRounds.length - 1].rate
-            : 0;
-        poolSize += amount;
-        lenders[msg.sender].deposits[0] = Deposit(
-            currentDeposit + amount,
-            currentApr,
-            currentRate,
-            0,
-            block.timestamp
-        );
-        _stableToken.safeTransferFrom(msg.sender, address(this), amount);
-        emit Deposited(msg.sender, 0, amount, 0, currentApr, currentRate);
+    function switchAprBondingCurve(
+        address _newCurve
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_newCurve != address(0), "Invalid Curve Address");
+        address oldCurve = address(_aprBondingCurve);
+        _aprBondingCurve = IBondingCurve(_newCurve);
+        emit AprBondingCurveSwitched(oldCurve, _newCurve);
+    }
+
+    /**
+     * @dev See {IFlexLender-switchRateBondingCurve}.
+     */
+    function switchRateBondingCurve(
+        address _newCurve
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_newCurve != address(0), "Invalid Curve Address");
+        address oldCurve = address(_rateBondingCurve);
+        _rateBondingCurve = IBondingCurve(_newCurve);
+        emit RateBondingCurveSwitched(oldCurve, _newCurve);
     }
 }

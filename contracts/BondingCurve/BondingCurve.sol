@@ -7,7 +7,7 @@ import "contracts/BondingCurve/Interface/IBondingCurve.sol";
  * @title BondingCurve
  * @author Polytrade
  */
-contract AprBondingCurve is IBondingCurve {
+contract BondingCurve is IBondingCurve {
     uint256 private _p1;
     uint256 private _p2;
     uint256 private _p3;
