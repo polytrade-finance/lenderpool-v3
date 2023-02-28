@@ -10,12 +10,12 @@ interface IFlexLender {
     }
 
     struct Deposit {
-        uint256 id;
         uint256 amount;
         uint256 rate;
         uint256 apr;
         uint256 lockingDuration;
         uint256 startDate;
+        uint256 lastClaimDate;
     }
 
     struct RateInfo {
@@ -172,8 +172,17 @@ interface IFlexLender {
     function deposit(uint256 _amount, uint256 _lockingDuration) external;
 
     /**
-     * @notice Claims the bonus rewards to the lender for a specific deposit depending
-     * @dev `claimReward` transfers all the accumulated bonus rewards to `msg.sender`
+     * @notice Claims the bonus rewards to the lender for all deposits
+     * @dev `claimBonus` transfers all the accumulated bonus rewards to `msg.sender`
+     * Requirements :
+     * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
+     * Emits {Claimed} event
+     */
+    function claimBonus() external;
+
+    /**
+     * @notice Claims the bonus rewards to the lender for a specific deposit
+     * @dev `claimBonus` transfers all the accumulated bonus rewards to `msg.sender`
      * @param _id Represents the id of deposit, for base pool is id = 0
      * Requirements :
      * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
@@ -260,6 +269,12 @@ interface IFlexLender {
     function switchStrategy(address _newStrategy) external;
 
     /**
+     * @dev returns the all deposited amount of a specific lender
+     * @param _lender Represents the address of lender
+     */
+    function getTotalDeposit(address _lender) external view returns (uint256);
+
+    /**
      * @dev returns the deposited amount of a specific lender and deposit
      * @param _lender Represents the address of lender
      * @param _id Represents the id of a deposit and for base pool is `0`
@@ -270,6 +285,12 @@ interface IFlexLender {
     ) external view returns (uint256);
 
     /**
+     * @dev returns all the available bonus rewards to claim for a specific lender and deposit
+     * @param _lender Represents the address of lender
+     */
+    function getBonusRewards(address _lender) external view returns (uint256);
+
+    /**
      * @dev returns the available bonus rewards to claim for a specific lender and deposit
      * @param _lender Represents the address of lender
      * @param _id Represents the id of a deposit and for base pool is `0`
@@ -278,6 +299,12 @@ interface IFlexLender {
         address _lender,
         uint256 _id
     ) external view returns (uint256);
+
+    /**
+     * @dev returns all the accumulated amount of stable rewards for a specific lender
+     * @param _lender Represents the address of lender
+     */
+    function getStableRewards(address _lender) external view returns (uint256);
 
     /**
      * @dev returns the accumulated amount of stable rewards for a specific lender and depsoit
