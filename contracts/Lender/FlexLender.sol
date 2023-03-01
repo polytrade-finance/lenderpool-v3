@@ -20,6 +20,8 @@ contract FlexLender is IFlexLender, AccessControl {
     RoundInfo[] public rateRounds;
 
     uint256 public poolSize;
+    uint256 private _minLimit;
+    uint256 private _maxLimit;
     uint256 private immutable _stableDecimal;
     uint256 private immutable _bonusDecimal;
     uint256 private immutable _minDeposit;
@@ -112,5 +114,77 @@ contract FlexLender is IFlexLender, AccessControl {
         address oldCurve = address(_rateBondingCurve);
         _rateBondingCurve = IBondingCurve(_newCurve);
         emit RateBondingCurveSwitched(oldCurve, _newCurve);
+    }
+
+    /**
+     * @dev See {IFlexLender-changeDurationLimit}.
+     */
+    function changeDurationLimit(
+        uint256 minLimit,
+        uint256 maxLimit
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(maxLimit > minLimit, "Max. Limit is not > Min. Limit");
+        require(maxLimit <= 365, "Max. Limit should be <= 365 days");
+        require(minLimit >= 90, "Min. Limit should be >= 90 days");
+        _minLimit = minLimit;
+        _maxLimit = maxLimit;
+        emit DurationLimitChanged(minLimit, maxLimit);
+    }
+
+    /**
+     * @dev See {IFlexLender-deposit}.
+     */
+    function deposit(uint256 amount) external {
+        require(
+            _poolMaxLimit >= poolSize + amount,
+            "Pool has reached its limit"
+        );
+        require(amount >= _minDeposit, "Amount is less than Min. Deposit");
+        uint256 currentDeposit = lenders[msg.sender].deposits[0].amount;
+        poolSize += amount;
+        lenders[msg.sender].deposits[0] = Deposit(
+            currentDeposit + amount,
+            0,
+            0,
+            0,
+            block.timestamp,
+            block.timestamp
+        );
+        _stableToken.safeTransferFrom(msg.sender, address(this), amount);
+        emit Deposited(msg.sender, 0, amount, 0, 0, 0);
+    }
+
+    /**
+     * @dev See {IFlexLender-deposit}.
+     */
+    function deposit(uint256 amount, uint256 lockingDuration) external {
+        require(
+            _poolMaxLimit >= poolSize + amount,
+            "Pool has reached its limit"
+        );
+        require(amount >= _minDeposit, "Amount is less than Min. Deposit");
+        require(
+            lockingDuration >= _minLimit,
+            "Locking Duration is < Min. Limit"
+        );
+        require(
+            lockingDuration <= _maxLimit,
+            "Locking Duration is > Max. Limit"
+        );
+        uint256 apr = _aprBondingCurve.getRate(lockingDuration);
+        uint256 rate = _rateBondingCurve.getRate(lockingDuration);
+        uint256 lockingPeriod = lockingDuration * 1 days;
+        uint256 currentId = lenders[msg.sender].currentId + 1;
+        poolSize += amount;
+        lenders[msg.sender].deposits[currentId] = Deposit(
+            amount,
+            apr,
+            rate,
+            lockingPeriod,
+            block.timestamp,
+            block.timestamp
+        );
+        _stableToken.safeTransferFrom(msg.sender, address(this), amount);
+        emit Deposited(msg.sender, currentId, amount, lockingPeriod, apr, rate);
     }
 }
