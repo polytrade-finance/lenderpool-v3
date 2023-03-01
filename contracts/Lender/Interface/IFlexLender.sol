@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 interface IFlexLender {
     struct Lender {
+        uint256 currentId;
         uint256 pendingStableReward;
         uint256 pendingBonusReward;
         uint256[] activeDeposits;
@@ -11,8 +12,8 @@ interface IFlexLender {
 
     struct Deposit {
         uint256 amount;
-        uint256 rate;
         uint256 apr;
+        uint256 rate;
         uint256 lockingDuration;
         uint256 startDate;
         uint256 lastClaimDate;
@@ -32,14 +33,14 @@ interface IFlexLender {
      * @param apr is the deposit APR for calculating stable rewards
      * @param rate is the deposit Rate for calculating Trade rewards
      */
-    // event Deposited(
-    //     address indexed lender,
-    //     uint256 id,
-    //     uint256 amount,
-    //     uint256 lockingDuration,
-    //     uint256 apr,
-    //     uint256 rate
-    // );
+    event Deposited(
+        address indexed lender,
+        uint256 id,
+        uint256 amount,
+        uint256 lockingDuration,
+        uint256 apr,
+        uint256 rate
+    );
 
     /**
      * @notice Emits when deposited funds withdrawn from the Lender Pool
@@ -140,6 +141,14 @@ interface IFlexLender {
     event BaseRateChanged(uint256 oldRate, uint256 newRate);
 
     /**
+     * @notice Emits when new limit is set locking duration
+     * @dev Emitted when changeDurationLimit function is called by owner
+     * @param minLimit is the minimum limit for locking period in days
+     * @param maxLimit is the maximum limit for locking period in days
+     */
+    event DurationLimitChanged(uint256 minLimit, uint256 maxLimit);
+
+    /**
      * @notice Emits when new limit is set for flexible lender pool
      * @dev Emitted when changeMaxLimit function is called by owner
      * @param oldLimit is the old maximum limit for depositing
@@ -156,20 +165,20 @@ interface IFlexLender {
      * - `amount` must be approved from the stable token contract for the LenderPool
      * Emits {Deposited} event
      */
-    // function deposit(uint256 amount) external;
+    function deposit(uint256 amount) external;
 
     /**
      * @notice Deposits an amount of stable token for a locking period in the dynamic lender pool
      * @dev It transfers the approved stable tokens from msg.sender to lender pool
-     * @param _amount Represents the amount of tokens to deposit
-     * @param _lockingDuration Represents the duration of locking period for the deposited amount in days
+     * @param amount Represents the amount of tokens to deposit
+     * @param lockingDuration Represents the duration of locking period for the deposited amount in days
      * Requirements:
-     * - `_amount` should be greater than zero
-     * - `_amount` must be approved from the stable token contract for the LenderPool
-     * - `_lockingDuration` should be less than max duration and more than min duration
+     * - `amount` should be greater than zero
+     * - `amount` must be approved from the stable token contract for the LenderPool
+     * - `lockingDuration` should be less than max duration and more than min duration
      * Emits {Deposited} event
      */
-    // function deposit(uint256 _amount, uint256 _lockingDuration) external;
+    function deposit(uint256 amount, uint256 lockingDuration) external;
 
     /**
      * @notice Claims the bonus rewards to the lender for all deposits
@@ -240,6 +249,14 @@ interface IFlexLender {
      * Emits {BaseRateChanged} event
      */
     function changeBaseRate(uint256 _newRate) external;
+
+    /**
+     * @dev Changes the minimum and maximum limit of locking period in days
+     * @param minLimit is the new minimum limit in days
+     * @param maxLimit is the new maximum limit in days
+     * Emits {DurationLimitChanged} event
+     */
+    function changeDurationLimit(uint256 minLimit, uint256 maxLimit) external;
 
     /**
      * @dev Changes the maximum limit of deposit allowed for flexible pool
