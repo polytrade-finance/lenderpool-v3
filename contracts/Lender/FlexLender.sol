@@ -15,8 +15,8 @@ import "contracts/Lender/Interface/IFlexLender.sol";
 abstract contract FlexLender is IFlexLender, AccessControl {
     using SafeERC20 for IToken;
     mapping(address => Lender) public lenders;
-    RateInfo[] public aprRounds;
-    RateInfo[] public rateRounds;
+    RoundInfo[] public aprRounds;
+    RoundInfo[] public rateRounds;
 
     uint256 private immutable _stableDecimal;
     uint256 private immutable _bonusDecimal;
