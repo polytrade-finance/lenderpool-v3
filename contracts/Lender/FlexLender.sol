@@ -174,7 +174,9 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 apr = _aprBondingCurve.getRate(lockingDuration);
         uint256 rate = _rateBondingCurve.getRate(lockingDuration);
         uint256 lockingPeriod = lockingDuration * 1 days;
-        uint256 currentId = lenders[msg.sender].currentId + 1;
+        lenders[msg.sender].currentId++;
+        uint256 currentId = lenders[msg.sender].currentId;
+        lenders[msg.sender].activeDeposits.push(currentId);
         poolSize += amount;
         lenders[msg.sender].deposits[currentId] = Deposit(
             amount,
