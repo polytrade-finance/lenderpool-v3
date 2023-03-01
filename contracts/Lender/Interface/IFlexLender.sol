@@ -21,7 +21,6 @@ interface IFlexLender {
     struct RoundInfo {
         uint256 rate;
         uint256 startDate;
-        uint256 endDate;
     }
     /**
      * @notice Emits when new fund is deposited to the Lender Pool
