@@ -177,7 +177,6 @@ contract FlexLender is IFlexLender, AccessControl {
         lenders[msg.sender].currentId++;
         uint256 currentId = lenders[msg.sender].currentId;
         poolSize += amount;
-        lenders[msg.sender].activeDeposits.push(currentId);
         lenders[msg.sender].deposits[currentId] = Deposit(
             amount,
             apr,
