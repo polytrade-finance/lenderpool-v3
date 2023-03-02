@@ -20,6 +20,7 @@ contract BondingCurve is IBondingCurve {
      * @param decimals_ is the number decimals added to parameters that is necessary for calculation
      */
     constructor(uint256 p1_, uint256 p2_, uint256 p3_, uint256 decimals_) {
+        require(decimals_ != 0, "Decimals can not be zero");
         _p1 = p1_;
         _p2 = p2_;
         _p3 = p3_;
