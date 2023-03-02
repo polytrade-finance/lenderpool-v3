@@ -12,11 +12,18 @@ const {
 describe("Bonding Curve", function () {
   let aprCurve;
   let rateCurve;
+  let CurveFactory;
 
   before(async function () {
-    const CurveFactory = await ethers.getContractFactory("BondingCurve");
+    CurveFactory = await ethers.getContractFactory("BondingCurve");
     aprCurve = await CurveFactory.deploy(p1Apr, p2Apr, p3Apr, 6);
     rateCurve = await CurveFactory.deploy(p1Rate, p2Rate, p3Rate, 6);
+  });
+
+  it("Should fail to deploy bonding curve without decimals", async function () {
+    await expect(
+      CurveFactory.deploy(p1Apr, p2Apr, p3Apr, 0)
+    ).to.be.revertedWith("Decimals can not be zero");
   });
 
   it("Should return 5% (with 2 decimals) as APR for 3 months locking period", async function () {
