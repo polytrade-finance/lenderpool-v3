@@ -3,10 +3,10 @@ pragma solidity ^0.8.17;
 
 interface IFlexLender {
     struct Lender {
+        uint256 startId;
         uint256 currentId;
         uint256 pendingStableReward;
         uint256 pendingBonusReward;
-        uint256[] activeDeposits;
         mapping(uint256 => Deposit) deposits;
     }
 
