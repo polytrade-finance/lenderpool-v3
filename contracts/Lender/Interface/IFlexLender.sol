@@ -3,10 +3,12 @@ pragma solidity ^0.8.17;
 
 interface IFlexLender {
     struct Lender {
-        uint256 startId;
-        uint256 currentId;
+        uint256 amount;
         uint256 pendingStableReward;
         uint256 pendingBonusReward;
+        uint256 lastUpdateDate;
+        uint256 startId;
+        uint256 currentId;
         mapping(uint256 => Deposit) deposits;
     }
 
@@ -59,10 +61,10 @@ interface IFlexLender {
     /**
      * @notice Emits when lender claims Bonus rewards
      * @param lender is the address of the 'lender'
-     * @param id is the deposit ID
+     * @param id is the deposit ID and id zerp represents deposit without locking period
      * @param bonusReward is the accumulated Bonus rewards lender received based on the Rate
      */
-    // event BonusClaimed(address indexed lender, uint256 id, uint256 bonusReward);
+    event BonusClaimed(address indexed lender, uint256 id, uint256 bonusReward);
 
     /**
      * @notice Emits when a lender tries to withdraw from pool before pool end date
@@ -185,19 +187,28 @@ interface IFlexLender {
      * @dev `claimBonus` transfers all the accumulated bonus rewards to `msg.sender`
      * Requirements :
      * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
-     * Emits {Claimed} event
+     * Emits {BonusClaimed} event
      */
-    // function claimBonus() external;
+    function claimAllBonuses() external;
+
+    /**
+     * @notice Claims the bonus rewards to the lender the deposit without locking period
+     * @dev `claimBonus` transfers all the accumulated bonus rewards to `msg.sender`
+     * Requirements :
+     * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
+     * Emits {BonusClaimed} event
+     */
+    function claimBonus() external;
 
     /**
      * @notice Claims the bonus rewards to the lender for a specific deposit
      * @dev `claimBonus` transfers all the accumulated bonus rewards to `msg.sender`
-     * @param _id Represents the id of deposit, for base pool is id = 0
+     * @param id Represents the id of deposit
      * Requirements :
      * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
-     * Emits {Claimed} event
+     * Emits {BonusClaimed} event
      */
-    // function claimBonus(uint256 _id) external;
+    function claimBonus(uint256 id) external;
 
     /**
      * @notice Withdraws principal deposited tokens + Stable rewards + remaining bonus rewards
@@ -223,32 +234,32 @@ interface IFlexLender {
     /**
      * @dev Changes the Bonding Curve that calculates the APR for different locking periods and
      * affects the future deposits
-     * @param _newCurve is the address of new Bonding curve
+     * @param newCurve is the address of new Bonding curve
      * Emits {AprBondingCurveSwitched} event
      */
-    function switchAprBondingCurve(address _newCurve) external;
+    function switchAprBondingCurve(address newCurve) external;
 
     /**
      * @dev Changes the Bonding Curve that calculates the Rate for different locking periods and
      * affects the future deposits
-     * @param _newCurve is the address of new Bonding curve
+     * @param newCurve is the address of new Bonding curve
      * Emits {RateBondingCurveSwitched} event
      */
-    function switchRateBondingCurve(address _newCurve) external;
+    function switchRateBondingCurve(address newCurve) external;
 
     /**
      * @dev Changes the the APR for deposits without locking period
-     * @param _newApr is the new APR in percentage without decimals
+     * @param newApr is the new APR in percentage without decimals
      * Emits {BaseAprChanged} event
      */
-    function changeBaseApr(uint256 _newApr) external;
+    function changeBaseApr(uint256 newApr) external;
 
     /**
      * @dev Changes the Rate that calculates bonus rewards and affects the future deposits
-     * @param _newRate is the new rate with 2 decimals
+     * @param newRate is the new rate with 2 decimals
      * Emits {BaseRateChanged} event
      */
-    function changeBaseRate(uint256 _newRate) external;
+    function changeBaseRate(uint256 newRate) external;
 
     /**
      * @dev Changes the minimum and maximum limit of locking period in days
@@ -287,19 +298,25 @@ interface IFlexLender {
 
     /**
      * @dev returns the all deposited amount of a specific lender
-     * @param _lender Represents the address of lender
+     * @param lender Represents the address of lender
      */
-    // function getTotalDeposit(address _lender) external view returns (uint256);
+    function getTotalDeposit(address lender) external view returns (uint256);
+
+    /**
+     * @dev returns the deposited amount without locking period for a specific lender
+     * @param lender Represents the address of lender
+     */
+    function getDeposit(address lender) external view returns (uint256);
 
     /**
      * @dev returns the deposited amount of a specific lender and deposit
-     * @param _lender Represents the address of lender
-     * @param _id Represents the id of a deposit and for base pool is `0`
+     * @param lender Represents the address of lender
+     * @param id Represents the id of a deposit
      */
-    // function getDeposit(
-    //     address _lender,
-    //     uint256 _id
-    // ) external view returns (uint256);
+    function getDeposit(
+        address lender,
+        uint256 id
+    ) external view returns (uint256);
 
     /**
      * @dev returns all the available bonus rewards to claim for a specific lender and deposit
