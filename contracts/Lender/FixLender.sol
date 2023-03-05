@@ -410,7 +410,7 @@ contract FixLender is IFixLender, AccessControl {
     }
 
     /**
-     * @dev Calculates the bonus and stable rewards for all lender
+     * @dev Calculates the bonus and stable rewards for all lenders
      * @param amount is the amount of deposited stable tokens
      * @param duration is the passed duration from last updated rewards
      * @param rate is the fixed _bonusRate or _stableApr for the pool

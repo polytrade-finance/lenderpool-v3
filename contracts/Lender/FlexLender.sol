@@ -26,6 +26,7 @@ contract FlexLender is IFlexLender, AccessControl {
     uint256 private immutable _bonusDecimal;
     uint256 private immutable _minDeposit;
     uint256 private immutable _poolMaxLimit;
+    uint256 private constant _YEAR = 365 days;
 
     IToken private immutable _stableToken;
     IToken private immutable _bonusToken;
@@ -140,16 +141,14 @@ contract FlexLender is IFlexLender, AccessControl {
             "Pool has reached its limit"
         );
         require(amount >= _minDeposit, "Amount is less than Min. Deposit");
-        uint256 currentDeposit = lenders[msg.sender].deposits[0].amount;
-        poolSize += amount;
-        lenders[msg.sender].deposits[0] = Deposit(
-            currentDeposit + amount,
-            0,
-            0,
-            0,
-            block.timestamp,
-            block.timestamp
+        (uint256 stableReward, uint256 bonusReward) = _calculateBaseRewards(
+            msg.sender
         );
+        poolSize += amount;
+        lenders[msg.sender].amount += amount;
+        lenders[msg.sender].pendingStableReward += stableReward;
+        lenders[msg.sender].pendingBonusReward += bonusReward;
+        lenders[msg.sender].lastUpdateDate = block.timestamp;
         _stableToken.safeTransferFrom(msg.sender, address(this), amount);
         emit Deposited(msg.sender, 0, amount, 0, 0, 0);
     }
@@ -187,5 +186,207 @@ contract FlexLender is IFlexLender, AccessControl {
         );
         _stableToken.safeTransferFrom(msg.sender, address(this), amount);
         emit Deposited(msg.sender, currentId, amount, lockingPeriod, apr, rate);
+    }
+
+    /**
+     * @dev See {IFlexLender-claimAllBonuses}.
+     */
+    function claimAllBonuses() external {
+        require(
+            _getTotalDeposit(msg.sender) != 0,
+            "You have nothing in deposit"
+        );
+        (
+            uint256 baseStableReward,
+            uint256 baseBonusReward
+        ) = _calculateBaseRewards(msg.sender);
+        lenders[msg.sender].pendingStableReward += baseStableReward;
+        uint256 claimableBonus = baseBonusReward +
+            lenders[msg.sender].pendingBonusReward;
+        lenders[msg.sender].pendingBonusReward = 0;
+        lenders[msg.sender].lastUpdateDate = block.timestamp;
+        for (
+            uint256 i = lenders[msg.sender].startId;
+            i < lenders[msg.sender].currentId + 1;
+            i++
+        ) {
+            (, uint256 bonusReward) = _calculateRewards(msg.sender, i);
+            lenders[msg.sender].deposits[i].lastClaimDate = block.timestamp;
+            claimableBonus += bonusReward;
+        }
+        _bonusToken.safeTransfer(msg.sender, claimableBonus);
+        emit BonusClaimed(msg.sender, 0, claimableBonus);
+    }
+
+    /**
+     * @dev See {IFlexLender-claimBonus}.
+     */
+    function claimBonus() external {
+        require(lenders[msg.sender].amount != 0, "You have nothing is deposit");
+        (
+            uint256 baseStableReward,
+            uint256 baseBonusReward
+        ) = _calculateBaseRewards(msg.sender);
+        lenders[msg.sender].pendingStableReward += baseStableReward;
+        uint256 claimableBonus = baseBonusReward +
+            lenders[msg.sender].pendingBonusReward;
+        lenders[msg.sender].pendingBonusReward = 0;
+        lenders[msg.sender].lastUpdateDate = block.timestamp;
+        _bonusToken.safeTransfer(msg.sender, claimableBonus);
+        emit BonusClaimed(msg.sender, 0, claimableBonus);
+    }
+
+    /**
+     * @dev See {IFlexLender-claimBonus}.
+     */
+    function claimBonus(uint256 id) external {
+        require(
+            lenders[msg.sender].deposits[id].amount != 0,
+            "You have nothing with this ID"
+        );
+        (, uint256 bonusReward) = _calculateRewards(msg.sender, id);
+        lenders[msg.sender].deposits[id].lastClaimDate = block.timestamp;
+        _bonusToken.safeTransfer(msg.sender, bonusReward);
+        emit BonusClaimed(msg.sender, id, bonusReward);
+    }
+
+    /**
+     * @dev See {IFlexLender-getTotalDeposit}.
+     */
+    function getTotalDeposit(address lender) external view returns (uint256) {
+        return _getTotalDeposit(lender);
+    }
+
+    /**
+     * @dev See {IFlexLender-getDeposit}.
+     */
+    function getDeposit(address lender) external view returns (uint256) {
+        return lenders[lender].amount;
+    }
+
+    /**
+     * @dev See {IFlexLender-getDeposit}.
+     */
+    function getDeposit(
+        address lender,
+        uint256 id
+    ) external view returns (uint256) {
+        return lenders[lender].deposits[id].amount;
+    }
+
+    /**
+     * @dev Calculates both the bonus reward and stable rewards for the deposit without locking period
+     * @param _lender is the address of lender
+     */
+    function _calculateBaseRewards(
+        address _lender
+    ) private view returns (uint256, uint256) {
+        uint256 amount = lenders[_lender].amount;
+        uint256 startDate = lenders[_lender].lastUpdateDate;
+        return (
+            _calculateBaseReward(amount, startDate, aprRounds),
+            _calculateBaseReward(amount, startDate, rateRounds)
+        );
+    }
+
+    /**
+     * @dev Calculates both the bonus reward and stable rewards for deposits with locking period
+     * @param _lender is the address of lender
+     * @param _id is the id of deposit
+     */
+    function _calculateRewards(
+        address _lender,
+        uint256 _id
+    ) private view returns (uint256, uint256) {
+        uint256 depositEndDate = lenders[_lender].deposits[_id].startDate +
+            lenders[_lender].deposits[_id].lockingDuration;
+        uint256 amount = lenders[_lender].deposits[_id].amount;
+        uint256 endDate = block.timestamp > depositEndDate
+            ? depositEndDate
+            : block.timestamp;
+        uint256 stableDiff = endDate - lenders[_lender].deposits[_id].startDate;
+        uint256 bonusDiff = endDate -
+            lenders[_lender].deposits[_id].lastClaimDate;
+        return (
+            _calculateFormula(
+                amount,
+                stableDiff,
+                lenders[_lender].deposits[_id].apr,
+                _YEAR
+            ),
+            _calculateFormula(
+                amount,
+                bonusDiff,
+                lenders[_lender].deposits[_id].rate,
+                lenders[_lender].deposits[_id].lockingDuration
+            )
+        );
+    }
+
+    /**
+     * @dev Calculates both the bonus reward and stable rewards for the deposit without locking period
+     * @dev This will be called sepratly for stable and bonus rewards in _calculateBaseRewards function
+     * @param _amount is the deposited amount
+     * @param _startDate is the timestamp of calculation start
+     * @param _round is the array of apr or rates from beginning to current round
+     */
+    function _calculateBaseReward(
+        uint256 _amount,
+        uint256 _startDate,
+        RoundInfo[] memory _round
+    ) private view returns (uint256) {
+        uint256 calculatedReward;
+        uint256 currentRound = _round.length;
+        for (uint256 i = currentRound; i > 0; i--) {
+            uint256 endDate = i != currentRound
+                ? _round[i + 1].startDate
+                : block.timestamp;
+            uint256 startDate = _startDate > _round[i].startDate
+                ? _startDate
+                : _round[i].startDate;
+            uint256 diff = endDate - startDate;
+            calculatedReward += _calculateFormula(
+                _amount,
+                diff,
+                _round[i].rate,
+                _YEAR
+            );
+            if (_startDate > _round[i].startDate) {
+                break;
+            }
+        }
+        return calculatedReward;
+    }
+
+    /**
+     * @dev loops through all deposits with locking period and sum it with deposit without locking period
+     * @param _lender Represents the address of lender
+     */
+    function _getTotalDeposit(address _lender) private view returns (uint256) {
+        uint256 depositedAmount = lenders[_lender].amount;
+        for (
+            uint256 i = lenders[_lender].startId;
+            i < lenders[_lender].currentId + 1;
+            i++
+        ) {
+            depositedAmount += lenders[_lender].deposits[i].amount;
+        }
+        return depositedAmount;
+    }
+
+    /**
+     * @dev Calculates the bonus and stable rewards for all lenders
+     * @param amount is the amount of deposited stable tokens
+     * @param duration is the passed duration from last updated rewards
+     * @param rate is the rate for bonus reward or apr for stable reward
+     * @param period is the period that calculates rewards based on that
+     */
+    function _calculateFormula(
+        uint256 amount,
+        uint256 duration,
+        uint256 rate,
+        uint256 period
+    ) private pure returns (uint256) {
+        return ((amount * duration * rate) / 1E2) / period;
     }
 }
