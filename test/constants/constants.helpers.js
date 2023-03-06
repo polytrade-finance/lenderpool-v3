@@ -18,6 +18,8 @@ const p3Apr = 493000000;
 const p1Rate = 704;
 const p2Rate = 52150;
 const p3Rate = 24640000;
+const LockingMaxLimit = 365;
+const LockingMinLimit = 90;
 const PoolMaxLimit = 10000;
 const DAY = 1 * 60 * 60 * 24;
 const YEAR = 365 * 60 * 60 * 24;
@@ -49,4 +51,6 @@ module.exports = {
   p1Rate,
   p2Rate,
   p3Rate,
+  LockingMaxLimit,
+  LockingMinLimit,
 };
