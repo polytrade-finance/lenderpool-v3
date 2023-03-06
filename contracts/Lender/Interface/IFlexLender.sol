@@ -300,23 +300,23 @@ interface IFlexLender {
      * @dev returns the all deposited amount of a specific lender
      * @param lender Represents the address of lender
      */
-    function getTotalDeposit(address lender) external view returns (uint256);
+    // function getTotalDeposit(address lender) external view returns (uint256);
 
     /**
      * @dev returns the deposited amount without locking period for a specific lender
      * @param lender Represents the address of lender
      */
-    function getDeposit(address lender) external view returns (uint256);
+    // function getDeposit(address lender) external view returns (uint256);
 
     /**
      * @dev returns the deposited amount of a specific lender and deposit
      * @param lender Represents the address of lender
      * @param id Represents the id of a deposit
      */
-    function getDeposit(
-        address lender,
-        uint256 id
-    ) external view returns (uint256);
+    // function getDeposit(
+    //     address lender,
+    //     uint256 id
+    // ) external view returns (uint256);
 
     /**
      * @dev returns all the available bonus rewards to claim for a specific lender and deposit
