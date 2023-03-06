@@ -16,10 +16,12 @@ import "contracts/BondingCurve/Interface/IBondingCurve.sol";
 contract FlexLender is IFlexLender, AccessControl {
     using SafeERC20 for IToken;
     mapping(address => Lender) public lenders;
-    RoundInfo[] public aprRounds;
-    RoundInfo[] public rateRounds;
+    mapping(uint256 => RoundInfo) public aprRounds;
+    mapping(uint256 => RoundInfo) public rateRounds;
 
     uint256 public poolSize;
+    uint256 private _currentAprRound;
+    uint256 private _currentRateRound;
     uint256 private _minLimit;
     uint256 private _maxLimit;
     uint256 private immutable _stableDecimal;
@@ -67,12 +69,10 @@ contract FlexLender is IFlexLender, AccessControl {
     function changeBaseApr(
         uint256 baseStableApr
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        uint256 currentRound = aprRounds.length;
-        uint256 oldApr = currentRound != 0
-            ? aprRounds[currentRound - 1].rate
-            : 0;
+        uint256 oldApr = aprRounds[_currentAprRound].rate;
         uint256 newApr = baseStableApr / 1E2;
-        aprRounds.push(RoundInfo(newApr, block.timestamp));
+        _currentAprRound++;
+        aprRounds[_currentAprRound] = RoundInfo(newApr, block.timestamp);
         emit BaseAprChanged(oldApr, newApr);
     }
 
@@ -83,13 +83,11 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 baseBonusRate
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(baseBonusRate <= 10000, "Invalid Bonus Rate");
-        uint256 currentRound = rateRounds.length;
-        uint256 oldRate = currentRound != 0
-            ? rateRounds[currentRound - 1].rate
-            : 0;
+        uint256 oldRate = rateRounds[_currentRateRound].rate;
         uint256 newRate = baseBonusRate *
             (10 ** (_bonusDecimal - _stableDecimal));
-        rateRounds.push(RoundInfo(newRate, block.timestamp));
+        _currentRateRound++;
+        rateRounds[_currentRateRound] = RoundInfo(newRate, block.timestamp);
         emit BaseRateChanged(oldRate, newRate);
     }
 
@@ -173,13 +171,13 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 apr = _aprBondingCurve.getRate(lockingDuration);
         uint256 rate = _rateBondingCurve.getRate(lockingDuration);
         uint256 lockingPeriod = lockingDuration * 1 days;
-        lenders[msg.sender].currentId++;
         uint256 currentId = lenders[msg.sender].currentId;
+        lenders[msg.sender].currentId++;
         poolSize += amount;
         lenders[msg.sender].deposits[currentId] = Deposit(
             amount,
             apr,
-            rate,
+            rate * (10 ** (_bonusDecimal - _stableDecimal)),
             lockingPeriod,
             block.timestamp,
             block.timestamp
@@ -194,46 +192,27 @@ contract FlexLender is IFlexLender, AccessControl {
     function claimAllBonuses() external {
         require(
             _getTotalDeposit(msg.sender) != 0,
-            "You have nothing in deposit"
+            "You have not deposited anything"
         );
-        (
-            uint256 baseStableReward,
-            uint256 baseBonusReward
-        ) = _calculateBaseRewards(msg.sender);
-        lenders[msg.sender].pendingStableReward += baseStableReward;
-        uint256 claimableBonus = baseBonusReward +
-            lenders[msg.sender].pendingBonusReward;
-        lenders[msg.sender].pendingBonusReward = 0;
-        lenders[msg.sender].lastUpdateDate = block.timestamp;
+        _claimBonus();
         for (
             uint256 i = lenders[msg.sender].startId;
-            i < lenders[msg.sender].currentId + 1;
+            i < lenders[msg.sender].currentId;
             i++
         ) {
-            (, uint256 bonusReward) = _calculateRewards(msg.sender, i);
-            lenders[msg.sender].deposits[i].lastClaimDate = block.timestamp;
-            claimableBonus += bonusReward;
+            _claimBonus(i);
         }
-        _bonusToken.safeTransfer(msg.sender, claimableBonus);
-        emit BonusClaimed(msg.sender, 0, claimableBonus);
     }
 
     /**
      * @dev See {IFlexLender-claimBonus}.
      */
     function claimBonus() external {
-        require(lenders[msg.sender].amount != 0, "You have nothing is deposit");
-        (
-            uint256 baseStableReward,
-            uint256 baseBonusReward
-        ) = _calculateBaseRewards(msg.sender);
-        lenders[msg.sender].pendingStableReward += baseStableReward;
-        uint256 claimableBonus = baseBonusReward +
-            lenders[msg.sender].pendingBonusReward;
-        lenders[msg.sender].pendingBonusReward = 0;
-        lenders[msg.sender].lastUpdateDate = block.timestamp;
-        _bonusToken.safeTransfer(msg.sender, claimableBonus);
-        emit BonusClaimed(msg.sender, 0, claimableBonus);
+        require(
+            lenders[msg.sender].amount != 0,
+            "You have not deposited anything"
+        );
+        _claimBonus();
     }
 
     /**
@@ -244,34 +223,45 @@ contract FlexLender is IFlexLender, AccessControl {
             lenders[msg.sender].deposits[id].amount != 0,
             "You have nothing with this ID"
         );
-        (, uint256 bonusReward) = _calculateRewards(msg.sender, id);
-        lenders[msg.sender].deposits[id].lastClaimDate = block.timestamp;
+        _claimBonus(id);
+    }
+
+    /**
+     * @dev It will called in claimBonus and claimAllBonus
+     * @dev Calculates all stable and bonus rewards and updates deposit without locking period parameters
+     * @dev Transfers all bonus rewards to sender
+     * @dev emit {BonusClaimed} event
+     */
+    function _claimBonus() private {
+        (
+            uint256 baseStableReward,
+            uint256 baseBonusReward
+        ) = _calculateBaseRewards(msg.sender);
+        lenders[msg.sender].pendingStableReward += baseStableReward;
+        uint256 claimableBonus = baseBonusReward +
+            lenders[msg.sender].pendingBonusReward;
+        lenders[msg.sender].pendingBonusReward = 0;
+        lenders[msg.sender].lastUpdateDate = block.timestamp;
+        _bonusToken.safeTransfer(msg.sender, claimableBonus);
+        emit BonusClaimed(msg.sender, 0, claimableBonus);
+    }
+
+    /**
+     * @dev It will called in claimBonus and claimAllBonus
+     * @dev Calculates all bonus rewards for a specific deposit and updates lastClaimDate
+     * @dev Transfers all bonus rewards to sender
+     * @dev emit {BonusClaimed} event
+     */
+    function _claimBonus(uint256 _id) private {
+        (, uint256 bonusReward) = _calculateRewards(msg.sender, _id);
+        uint256 depositEndDate = lenders[msg.sender].deposits[_id].startDate +
+            lenders[msg.sender].deposits[_id].lockingDuration;
+        lenders[msg.sender].deposits[_id].lastClaimDate = depositEndDate >
+            block.timestamp
+            ? block.timestamp
+            : depositEndDate;
         _bonusToken.safeTransfer(msg.sender, bonusReward);
-        emit BonusClaimed(msg.sender, id, bonusReward);
-    }
-
-    /**
-     * @dev See {IFlexLender-getTotalDeposit}.
-     */
-    function getTotalDeposit(address lender) external view returns (uint256) {
-        return _getTotalDeposit(lender);
-    }
-
-    /**
-     * @dev See {IFlexLender-getDeposit}.
-     */
-    function getDeposit(address lender) external view returns (uint256) {
-        return lenders[lender].amount;
-    }
-
-    /**
-     * @dev See {IFlexLender-getDeposit}.
-     */
-    function getDeposit(
-        address lender,
-        uint256 id
-    ) external view returns (uint256) {
-        return lenders[lender].deposits[id].amount;
+        emit BonusClaimed(msg.sender, _id, bonusReward);
     }
 
     /**
@@ -282,10 +272,10 @@ contract FlexLender is IFlexLender, AccessControl {
         address _lender
     ) private view returns (uint256, uint256) {
         uint256 amount = lenders[_lender].amount;
-        uint256 startDate = lenders[_lender].lastUpdateDate;
+        uint256 lastUpdate = lenders[_lender].lastUpdateDate;
         return (
-            _calculateBaseReward(amount, startDate, aprRounds),
-            _calculateBaseReward(amount, startDate, rateRounds)
+            _calculateBaseStableReward(amount, lastUpdate),
+            _calculateBaseBonusReward(amount, lastUpdate)
         );
     }
 
@@ -324,34 +314,63 @@ contract FlexLender is IFlexLender, AccessControl {
     }
 
     /**
-     * @dev Calculates both the bonus reward and stable rewards for the deposit without locking period
-     * @dev This will be called sepratly for stable and bonus rewards in _calculateBaseRewards function
+     * @dev Calculates stable rewards for the deposit without locking period
+     * @dev This will be called for stable rewards in _calculateBaseRewards function
      * @param _amount is the deposited amount
-     * @param _startDate is the timestamp of calculation start
-     * @param _round is the array of apr or rates from beginning to current round
+     * @param _lastUpdate is the timestamp of calculation start
      */
-    function _calculateBaseReward(
+    function _calculateBaseStableReward(
         uint256 _amount,
-        uint256 _startDate,
-        RoundInfo[] memory _round
+        uint256 _lastUpdate
     ) private view returns (uint256) {
         uint256 calculatedReward;
-        uint256 currentRound = _round.length;
-        for (uint256 i = currentRound; i > 0; i--) {
-            uint256 endDate = i != currentRound
-                ? _round[i + 1].startDate
+        for (uint256 i = _currentAprRound; i > 0; i--) {
+            uint256 endDate = i != _currentAprRound
+                ? aprRounds[i + 1].startDate
                 : block.timestamp;
-            uint256 startDate = _startDate > _round[i].startDate
-                ? _startDate
-                : _round[i].startDate;
+            uint256 startDate = _lastUpdate > aprRounds[i].startDate
+                ? _lastUpdate
+                : aprRounds[i].startDate;
             uint256 diff = endDate - startDate;
             calculatedReward += _calculateFormula(
                 _amount,
                 diff,
-                _round[i].rate,
+                aprRounds[i].rate,
                 _YEAR
             );
-            if (_startDate > _round[i].startDate) {
+            if (_lastUpdate > aprRounds[i].startDate) {
+                break;
+            }
+        }
+        return calculatedReward;
+    }
+
+    /**
+     * @dev Calculates bonus rewards for the deposit without locking period
+     * @dev This will be called for bonus rewards in _calculateBaseRewards function
+     * @param _amount is the deposited amount
+     * @param _lastUpdate is the timestamp of calculation start
+     */
+    function _calculateBaseBonusReward(
+        uint256 _amount,
+        uint256 _lastUpdate
+    ) private view returns (uint256) {
+        uint256 calculatedReward;
+        for (uint256 i = _currentRateRound; i > 0; i--) {
+            uint256 endDate = i != _currentRateRound
+                ? rateRounds[i + 1].startDate
+                : block.timestamp;
+            uint256 startDate = _lastUpdate > rateRounds[i].startDate
+                ? _lastUpdate
+                : rateRounds[i].startDate;
+            uint256 diff = endDate - startDate;
+            calculatedReward += _calculateFormula(
+                _amount,
+                diff,
+                rateRounds[i].rate,
+                _YEAR
+            );
+            if (_lastUpdate > rateRounds[i].startDate) {
                 break;
             }
         }
