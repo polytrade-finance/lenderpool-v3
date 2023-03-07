@@ -29,7 +29,7 @@ interface IFlexLender {
     /**
      * @notice Emits when new fund is deposited to the Lender Pool
      * @param lender is the address of the `lender`
-     * @param id is the deposit ID
+     * @param id is the deposit ID, id '0' represents deposit without locking period
      * @param amount is the stable tokens deposited by the lender
      * @param lockingDuration is the duration of locking period
      * @param apr is the deposit APR for calculating stable rewards
@@ -47,21 +47,21 @@ interface IFlexLender {
     /**
      * @notice Emits when deposited funds withdrawn from the Lender Pool
      * @param lender is the address of the `lender`
-     * @param id is the deposit ID
+     * @param id is the deposit ID, id '0' represents deposit without locking period
      * @param amount is the principal stable amount of deposit + stable Reward lender received based on APR
      * @param bonusReward is the remaining $TRADE rewards lender received based on the Rate
      */
-    // event Withdrawn(
-    //     address indexed lender,
-    //     uint256 id,
-    //     uint256 amount,
-    //     uint256 bonusReward
-    // );
+    event Withdrawn(
+        address indexed lender,
+        uint256 id,
+        uint256 amount,
+        uint256 bonusReward
+    );
 
     /**
      * @notice Emits when lender claims Bonus rewards
      * @param lender is the address of the 'lender'
-     * @param id is the deposit ID and id zerp represents deposit without locking period
+     * @param id is the deposit ID, id '0' represents deposit without locking period
      * @param bonusReward is the accumulated Bonus rewards lender received based on the Rate
      */
     event BonusClaimed(address indexed lender, uint256 id, uint256 bonusReward);
@@ -72,18 +72,18 @@ interface IFlexLender {
      * @param id is the deposit ID
      * @param amount is the amount that withdrawn by lender
      */
-    // event WithdrawnEmergency(
-    //     address indexed lender,
-    //     uint256 id,
-    //     uint256 amount
-    // );
+    event WithdrawnEmergency(
+        address indexed lender,
+        uint256 id,
+        uint256 amount
+    );
 
     /**
      * @notice Emits when a admin change the rate for emergency withdraw fee
      * @param oldRate is the old withdraw rate
      * @param newRate is the new withdraw rate
      */
-    // event WithdrawRateChanged(uint256 oldRate, uint256 newRate);
+    event WithdrawRateChanged(uint256 oldRate, uint256 newRate);
 
     /**
      * @notice Emits when new verification contract is used
@@ -212,24 +212,35 @@ interface IFlexLender {
 
     /**
      * @notice Withdraws principal deposited tokens + Stable rewards + remaining bonus rewards
-     * @param _id Represents the ID of deposit that lender tries to withdraw after locking period
+     * for the deposit without locking period
      * Requirements:
-     * - `_id` should represent a deposit that has been passed its lock period or `0` for base pool
+     * - `LenderPool` should have stable tokens more than or equal to lender stable rewards + principal amount
+     * - `LenderPool` should have bonus tokens more than or equal to lender accumulated bonus rewards
+     * Emits {Withdrawn} event
+     */
+    function withdraw() external;
+
+    /**
+     * @notice Withdraws principal deposited tokens + Stable rewards + remaining bonus rewards for a specific deposit
+     * @param id Represents the ID of deposit that lender tries to withdraw after locking period
+     * Requirements:
+     * - `id` should represent a deposit that has been passed its lock period
      * - `LenderPool` should have stable tokens more than or equal to lender stable rewards + principal amount
      * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
      * Emits {Withdrawn} event
      */
-    // function withdraw(uint256 _id) external;
+    function withdraw(uint256 id) external;
 
     /**
      * @notice Withdraws principal total deposit minus fee that is a percentage of total deposit for a specific deposit
+     * @param id Represents the ID of deposit that lender tries to emergency withdraw before locking period
      * Requirements:
-     * - Should be called before pool end date
-     * - 'msg.sender' should have deposit
+     * - Should be called before locknig period ends
+     * - 'msg.sender' should have deposit with specific id
      * - Lender should have enough stable token to transfer
      * Emits {WithdrawnEmergency} event
      */
-    // function emergencyWithdraw(uint256 _id) external;
+    function emergencyWithdraw(uint256 id) external;
 
     /**
      * @dev Changes the Bonding Curve that calculates the APR for different locking periods and
