@@ -158,6 +158,13 @@ describe("Flexible Lender Pool", function () {
       );
     });
 
+    it("Should fail to if Stable Apr is more than 100%", async function () {
+      // 10001 = 100.01 %
+      await expect(lenderContract.changeBaseApr(10001)).to.be.revertedWith(
+        "Invalid Stable Apr"
+      );
+    });
+
     it("Should fail to if Bonus Rate is more than 100 per stable token", async function () {
       // 10001 = 100.01 rate
       await expect(lenderContract.changeBaseRate(10001)).to.be.revertedWith(
@@ -228,6 +235,18 @@ describe("Flexible Lender Pool", function () {
       await expect(
         lenderContract.switchRateBondingCurve(ZeroAddress)
       ).to.be.revertedWith("Invalid Curve Address");
+    });
+
+    it("Should fail to set apr address without curve interface support", async function () {
+      await expect(
+        lenderContract.switchAprBondingCurve(stableToken.address)
+      ).to.be.revertedWith("Does not support Curve interface");
+    });
+
+    it("Should fail to set rate address without curve interface support", async function () {
+      await expect(
+        lenderContract.switchRateBondingCurve(stableToken.address)
+      ).to.be.revertedWith("Does not support Curve interface");
     });
 
     it("Should set Apr bonding Curve", async function () {

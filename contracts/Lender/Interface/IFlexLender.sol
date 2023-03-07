@@ -234,15 +234,17 @@ interface IFlexLender {
     /**
      * @dev Changes the Bonding Curve that calculates the APR for different locking periods and
      * affects the future deposits
-     * @param newCurve is the address of new Bonding curve
+     * @dev Implemented ERC165 and only accepts address with Curve interface support
+     * @param _newCurve is the address of new Bonding curve
      * Emits {AprBondingCurveSwitched} event
      */
     function switchAprBondingCurve(address newCurve) external;
-
+    
     /**
      * @dev Changes the Bonding Curve that calculates the Rate for different locking periods and
      * affects the future deposits
-     * @param newCurve is the address of new Bonding curve
+     * @dev Implemented ERC165 and only accepts address with Curve interface support
+     * @param _newCurve is the address of new Bonding curve
      * Emits {RateBondingCurveSwitched} event
      */
     function switchRateBondingCurve(address newCurve) external;
