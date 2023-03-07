@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import "contracts/Token/Interface/IToken.sol";
 import "contracts/Lender/Interface/IFlexLender.sol";
 import "contracts/BondingCurve/Interface/IBondingCurve.sol";
@@ -15,6 +16,8 @@ import "contracts/BondingCurve/Interface/IBondingCurve.sol";
  */
 contract FlexLender is IFlexLender, AccessControl {
     using SafeERC20 for IToken;
+    using ERC165Checker for address;
+
     mapping(address => Lender) public lenders;
     mapping(uint256 => RoundInfo) public aprRounds;
     mapping(uint256 => RoundInfo) public rateRounds;
@@ -30,6 +33,8 @@ contract FlexLender is IFlexLender, AccessControl {
     uint256 private immutable _minDeposit;
     uint256 private immutable _poolMaxLimit;
     uint256 private constant _YEAR = 365 days;
+    bytes4 private constant _CURVE_INTERFACE_ID =
+        type(IBondingCurve).interfaceId;
 
     IToken private immutable _stableToken;
     IToken private immutable _bonusToken;
@@ -70,6 +75,7 @@ contract FlexLender is IFlexLender, AccessControl {
     function changeBaseApr(
         uint256 baseStableApr
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(baseStableApr <= 10000, "Invalid Stable Apr");
         uint256 oldApr = aprRounds[_currentAprRound].rate;
         uint256 newApr = baseStableApr;
         _currentAprRound++;
@@ -98,7 +104,11 @@ contract FlexLender is IFlexLender, AccessControl {
     function switchAprBondingCurve(
         address newCurve
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newCurve != address(0), "Invalid Curve Address");
+        require(_newCurve != address(0), "Invalid Curve Address");
+        require(
+            _newCurve.supportsInterface(_CURVE_INTERFACE_ID),
+            "Does not support Curve interface"
+        );
         address oldCurve = address(_aprBondingCurve);
         _aprBondingCurve = IBondingCurve(newCurve);
         emit AprBondingCurveSwitched(oldCurve, newCurve);
@@ -110,7 +120,11 @@ contract FlexLender is IFlexLender, AccessControl {
     function switchRateBondingCurve(
         address newCurve
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newCurve != address(0), "Invalid Curve Address");
+        require(_newCurve != address(0), "Invalid Curve Address");
+        require(
+            _newCurve.supportsInterface(_CURVE_INTERFACE_ID),
+            "Does not support Curve interface"
+        );
         address oldCurve = address(_rateBondingCurve);
         _rateBondingCurve = IBondingCurve(newCurve);
         emit RateBondingCurveSwitched(oldCurve, newCurve);
