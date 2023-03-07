@@ -3,8 +3,10 @@ pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import "contracts/Token/Interface/IToken.sol";
 import "contracts/Lender/Interface/IFlexLender.sol";
+import "contracts/BondingCurve/Interface/IBondingCurve.sol";
 
 /**
  * @title Flexible Lender Pool contract
@@ -12,19 +14,28 @@ import "contracts/Lender/Interface/IFlexLender.sol";
  * @notice Users can deposit in Flexible lender pool without locking period or with locking period by their choice
  * @dev The contract is in development stage
  */
-abstract contract FlexLender is IFlexLender, AccessControl {
+contract FlexLender is IFlexLender, AccessControl {
     using SafeERC20 for IToken;
+    using ERC165Checker for address;
+
     mapping(address => Lender) public lenders;
     RoundInfo[] public aprRounds;
     RoundInfo[] public rateRounds;
 
+    uint256 public poolSize;
+    uint256 private _minLimit;
+    uint256 private _maxLimit;
     uint256 private immutable _stableDecimal;
     uint256 private immutable _bonusDecimal;
     uint256 private immutable _minDeposit;
     uint256 private immutable _poolMaxLimit;
+    bytes4 private constant _CURVE_INTERFACE_ID =
+        type(IBondingCurve).interfaceId;
 
     IToken private immutable _stableToken;
     IToken private immutable _bonusToken;
+    IBondingCurve private _aprBondingCurve;
+    IBondingCurve private _rateBondingCurve;
 
     /**
      * @dev Sets the values for admin, stableToken, bonusToken, minDeposit,PoolMaxLimit
@@ -52,5 +63,143 @@ abstract contract FlexLender is IFlexLender, AccessControl {
         _bonusDecimal = _bonusToken.decimals();
         _minDeposit = minDeposit_ * (10 ** _stableDecimal);
         _poolMaxLimit = poolMaxLimit_ * (10 ** _stableDecimal);
+    }
+
+    /**
+     * @dev See {IFlexLender-changeBaseApr}.
+     */
+    function changeBaseApr(
+        uint256 baseStableApr
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(baseStableApr <= 10000, "Invalid Stable Apr");
+        uint256 currentRound = aprRounds.length;
+        uint256 oldApr = currentRound != 0
+            ? aprRounds[currentRound - 1].rate
+            : 0;
+        uint256 newApr = baseStableApr / 1E2;
+        aprRounds.push(RoundInfo(newApr, block.timestamp));
+        emit BaseAprChanged(oldApr, newApr);
+    }
+
+    /**
+     * @dev See {IFlexLender-changeBaseRate}.
+     */
+    function changeBaseRate(
+        uint256 baseBonusRate
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(baseBonusRate <= 10000, "Invalid Bonus Rate");
+        uint256 currentRound = rateRounds.length;
+        uint256 oldRate = currentRound != 0
+            ? rateRounds[currentRound - 1].rate
+            : 0;
+        uint256 newRate = baseBonusRate *
+            (10 ** (_bonusDecimal - _stableDecimal));
+        rateRounds.push(RoundInfo(newRate, block.timestamp));
+        emit BaseRateChanged(oldRate, newRate);
+    }
+
+    /**
+     * @dev See {IFlexLender-switchAprBondingCurve}.
+     */
+    function switchAprBondingCurve(
+        address _newCurve
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_newCurve != address(0), "Invalid Curve Address");
+        require(
+            _newCurve.supportsInterface(_CURVE_INTERFACE_ID),
+            "Does not support Curve interface"
+        );
+        address oldCurve = address(_aprBondingCurve);
+        _aprBondingCurve = IBondingCurve(_newCurve);
+        emit AprBondingCurveSwitched(oldCurve, _newCurve);
+    }
+
+    /**
+     * @dev See {IFlexLender-switchRateBondingCurve}.
+     */
+    function switchRateBondingCurve(
+        address _newCurve
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_newCurve != address(0), "Invalid Curve Address");
+        require(
+            _newCurve.supportsInterface(_CURVE_INTERFACE_ID),
+            "Does not support Curve interface"
+        );
+        address oldCurve = address(_rateBondingCurve);
+        _rateBondingCurve = IBondingCurve(_newCurve);
+        emit RateBondingCurveSwitched(oldCurve, _newCurve);
+    }
+
+    /**
+     * @dev See {IFlexLender-changeDurationLimit}.
+     */
+    function changeDurationLimit(
+        uint256 minLimit,
+        uint256 maxLimit
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(maxLimit > minLimit, "Max. Limit is not > Min. Limit");
+        require(maxLimit <= 365, "Max. Limit should be <= 365 days");
+        require(minLimit >= 90, "Min. Limit should be >= 90 days");
+        _minLimit = minLimit;
+        _maxLimit = maxLimit;
+        emit DurationLimitChanged(minLimit, maxLimit);
+    }
+
+    /**
+     * @dev See {IFlexLender-deposit}.
+     */
+    function deposit(uint256 amount) external {
+        require(
+            _poolMaxLimit >= poolSize + amount,
+            "Pool has reached its limit"
+        );
+        require(amount >= _minDeposit, "Amount is less than Min. Deposit");
+        uint256 currentDeposit = lenders[msg.sender].deposits[0].amount;
+        poolSize += amount;
+        lenders[msg.sender].deposits[0] = Deposit(
+            currentDeposit + amount,
+            0,
+            0,
+            0,
+            block.timestamp,
+            block.timestamp
+        );
+        _stableToken.safeTransferFrom(msg.sender, address(this), amount);
+        emit Deposited(msg.sender, 0, amount, 0, 0, 0);
+    }
+
+    /**
+     * @dev See {IFlexLender-deposit}.
+     */
+    function deposit(uint256 amount, uint256 lockingDuration) external {
+        require(
+            _poolMaxLimit >= poolSize + amount,
+            "Pool has reached its limit"
+        );
+        require(amount >= _minDeposit, "Amount is less than Min. Deposit");
+        require(
+            lockingDuration >= _minLimit,
+            "Locking Duration is < Min. Limit"
+        );
+        require(
+            lockingDuration <= _maxLimit,
+            "Locking Duration is > Max. Limit"
+        );
+        uint256 apr = _aprBondingCurve.getRate(lockingDuration);
+        uint256 rate = _rateBondingCurve.getRate(lockingDuration);
+        uint256 lockingPeriod = lockingDuration * 1 days;
+        lenders[msg.sender].currentId++;
+        uint256 currentId = lenders[msg.sender].currentId;
+        poolSize += amount;
+        lenders[msg.sender].deposits[currentId] = Deposit(
+            amount,
+            apr,
+            rate,
+            lockingPeriod,
+            block.timestamp,
+            block.timestamp
+        );
+        _stableToken.safeTransferFrom(msg.sender, address(this), amount);
+        emit Deposited(msg.sender, currentId, amount, lockingPeriod, apr, rate);
     }
 }
