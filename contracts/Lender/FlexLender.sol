@@ -170,7 +170,8 @@ contract FlexLender is IFlexLender, AccessControl {
             "Locking Duration is > Max. Limit"
         );
         uint256 apr = _aprBondingCurve.getRate(lockingDuration);
-        uint256 rate = _rateBondingCurve.getRate(lockingDuration) * (10 ** (_bonusDecimal - _stableDecimal));
+        uint256 rate = _rateBondingCurve.getRate(lockingDuration) *
+            (10 ** (_bonusDecimal - _stableDecimal));
         uint256 lockingPeriod = lockingDuration * 1 days;
         lenders[msg.sender].currentId++;
         uint256 currentId = lenders[msg.sender].currentId;
@@ -451,12 +452,9 @@ contract FlexLender is IFlexLender, AccessControl {
                 ? _lastUpdate
                 : aprRounds[i].startDate;
             uint256 diff = endDate - startDate;
-            calculatedReward += _calculateFormula(
-                _amount,
-                diff,
-                aprRounds[i].rate,
-                _YEAR
-            ) / 1E2;
+            calculatedReward +=
+                _calculateFormula(_amount, diff, aprRounds[i].rate, _YEAR) /
+                1E2;
             if (_lastUpdate > aprRounds[i].startDate) {
                 break;
             }
