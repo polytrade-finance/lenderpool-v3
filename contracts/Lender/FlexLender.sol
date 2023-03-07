@@ -20,6 +20,7 @@ contract FlexLender is IFlexLender, AccessControl {
     mapping(uint256 => RoundInfo) public rateRounds;
 
     uint256 public poolSize;
+    uint256 private _withdrawPenaltyPercent;
     uint256 private _currentAprRound;
     uint256 private _currentRateRound;
     uint256 private _minLimit;
@@ -171,8 +172,8 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 apr = _aprBondingCurve.getRate(lockingDuration);
         uint256 rate = _rateBondingCurve.getRate(lockingDuration);
         uint256 lockingPeriod = lockingDuration * 1 days;
-        uint256 currentId = lenders[msg.sender].currentId;
         lenders[msg.sender].currentId++;
+        uint256 currentId = lenders[msg.sender].currentId;
         poolSize += amount;
         lenders[msg.sender].deposits[currentId] = Deposit(
             amount,
@@ -200,7 +201,7 @@ contract FlexLender is IFlexLender, AccessControl {
             i < lenders[msg.sender].currentId;
             i++
         ) {
-            _claimBonus(i);
+            _claimBonus(i + 1);
         }
     }
 
@@ -224,6 +225,94 @@ contract FlexLender is IFlexLender, AccessControl {
             "You have nothing with this ID"
         );
         _claimBonus(id);
+    }
+
+    /**
+     * @dev See {IFlexLender-withdraw}.
+     */
+    function withdraw() external {
+        require(
+            lenders[msg.sender].amount != 0,
+            "You have not deposited anything"
+        );
+        (
+            uint256 baseStableReward,
+            uint256 baseBonusReward
+        ) = _calculateBaseRewards(msg.sender);
+        uint256 depositedAmount = lenders[msg.sender].amount;
+        uint256 stableAmount = depositedAmount +
+            lenders[msg.sender].pendingStableReward +
+            baseStableReward;
+        uint256 bonusAmount = baseBonusReward +
+            lenders[msg.sender].pendingBonusReward;
+        lenders[msg.sender].amount = 0;
+        lenders[msg.sender].pendingBonusReward = 0;
+        lenders[msg.sender].pendingStableReward = 0;
+        poolSize -= depositedAmount;
+        _bonusToken.safeTransfer(msg.sender, bonusAmount);
+        _stableToken.safeTransfer(msg.sender, stableAmount);
+        emit Withdrawn(msg.sender, 0, stableAmount, bonusAmount);
+    }
+
+    /**
+     * @dev See {IFlexLender-withdraw}.
+     */
+    function withdraw(uint256 id) external {
+        require(
+            lenders[msg.sender].deposits[id].amount != 0,
+            "You have nothing with this ID"
+        );
+        uint256 depositEndDate = lenders[msg.sender].deposits[id].startDate +
+            lenders[msg.sender].deposits[id].lockingDuration;
+        require(block.timestamp >= depositEndDate, "You can not withdraw yet");
+        (uint256 stableReward, uint256 bonusReward) = _calculateRewards(
+            msg.sender,
+            id
+        );
+        uint256 depositedAmount = lenders[msg.sender].amount;
+        uint256 stableAmount = lenders[msg.sender].amount + stableReward;
+        delete lenders[msg.sender].deposits[id];
+        poolSize -= depositedAmount;
+        _updateId(msg.sender);
+        _bonusToken.safeTransfer(msg.sender, bonusReward);
+        _stableToken.safeTransfer(msg.sender, stableAmount);
+        emit Withdrawn(msg.sender, id, stableAmount, bonusReward);
+    }
+
+    /**
+     * @dev See {IFlexLender-emergencyWithdraw}.
+     */
+    function emergencyWithdraw(uint256 id) external {
+        require(
+            lenders[msg.sender].deposits[id].amount != 0,
+            "You have nothing with this ID"
+        );
+        uint256 depositEndDate = lenders[msg.sender].deposits[id].startDate +
+            lenders[msg.sender].deposits[id].lockingDuration;
+        require(
+            block.timestamp < depositEndDate,
+            "You can not emergency withdraw"
+        );
+        uint256 depositedAmount = lenders[msg.sender].deposits[id].amount;
+        uint256 withdrawFee = (depositedAmount * _withdrawPenaltyPercent) / 1E4;
+        uint256 refundAmount = depositedAmount - withdrawFee;
+        delete lenders[msg.sender].deposits[id];
+        poolSize -= depositedAmount;
+        _updateId(msg.sender);
+        _stableToken.safeTransfer(msg.sender, refundAmount);
+        emit WithdrawnEmergency(msg.sender, id, refundAmount);
+    }
+
+    /**
+     * @dev See {IFixLender-setWithdrawRate}.
+     */
+    function setWithdrawRate(
+        uint256 newRate
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newRate < 10000, "Rate can not be more than 100%");
+        uint256 oldRate = _withdrawPenaltyPercent;
+        _withdrawPenaltyPercent = newRate;
+        emit WithdrawRateChanged(oldRate, newRate);
     }
 
     /**
@@ -262,6 +351,36 @@ contract FlexLender is IFlexLender, AccessControl {
             : depositEndDate;
         _bonusToken.safeTransfer(msg.sender, bonusReward);
         emit BonusClaimed(msg.sender, _id, bonusReward);
+    }
+
+    /**
+     * @dev Updates the startId and currentId of deposits with lokcing period
+     * @dev Loops through all deposits from start and end and updates id
+     * @dev Called after a deposit has been withdrawn
+     */
+    function _updateId(address _lender) private {
+        uint256 start = lenders[_lender].startId;
+        uint256 end = lenders[_lender].currentId;
+        uint256 amount;
+        for (uint256 i = start; i < end; i++) {
+            amount += lenders[_lender].deposits[i + 1].amount;
+            if (amount == 0) {
+                start = i + 2;
+            } else {
+                amount = 0;
+                break;
+            }
+        }
+        for (uint256 i = end; i > start; i--) {
+            amount += lenders[_lender].deposits[i].amount;
+            if (amount == 0) {
+                end = i - 1;
+            } else {
+                break;
+            }
+        }
+        lenders[_lender].startId = start;
+        lenders[_lender].currentId = end;
     }
 
     /**
@@ -385,10 +504,10 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 depositedAmount = lenders[_lender].amount;
         for (
             uint256 i = lenders[_lender].startId;
-            i < lenders[_lender].currentId + 1;
+            i < lenders[_lender].currentId;
             i++
         ) {
-            depositedAmount += lenders[_lender].deposits[i].amount;
+            depositedAmount += lenders[_lender].deposits[i + 1].amount;
         }
         return depositedAmount;
     }
