@@ -71,7 +71,7 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 baseStableApr
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         uint256 oldApr = aprRounds[_currentAprRound].rate;
-        uint256 newApr = baseStableApr / 1E2;
+        uint256 newApr = baseStableApr;
         _currentAprRound++;
         aprRounds[_currentAprRound] = RoundInfo(newApr, block.timestamp);
         emit BaseAprChanged(oldApr, newApr);
@@ -96,24 +96,24 @@ contract FlexLender is IFlexLender, AccessControl {
      * @dev See {IFlexLender-switchAprBondingCurve}.
      */
     function switchAprBondingCurve(
-        address _newCurve
+        address newCurve
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_newCurve != address(0), "Invalid Curve Address");
+        require(newCurve != address(0), "Invalid Curve Address");
         address oldCurve = address(_aprBondingCurve);
-        _aprBondingCurve = IBondingCurve(_newCurve);
-        emit AprBondingCurveSwitched(oldCurve, _newCurve);
+        _aprBondingCurve = IBondingCurve(newCurve);
+        emit AprBondingCurveSwitched(oldCurve, newCurve);
     }
 
     /**
      * @dev See {IFlexLender-switchRateBondingCurve}.
      */
     function switchRateBondingCurve(
-        address _newCurve
+        address newCurve
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_newCurve != address(0), "Invalid Curve Address");
+        require(newCurve != address(0), "Invalid Curve Address");
         address oldCurve = address(_rateBondingCurve);
-        _rateBondingCurve = IBondingCurve(_newCurve);
-        emit RateBondingCurveSwitched(oldCurve, _newCurve);
+        _rateBondingCurve = IBondingCurve(newCurve);
+        emit RateBondingCurveSwitched(oldCurve, newCurve);
     }
 
     /**
@@ -170,7 +170,7 @@ contract FlexLender is IFlexLender, AccessControl {
             "Locking Duration is > Max. Limit"
         );
         uint256 apr = _aprBondingCurve.getRate(lockingDuration);
-        uint256 rate = _rateBondingCurve.getRate(lockingDuration);
+        uint256 rate = _rateBondingCurve.getRate(lockingDuration) * (10 ** (_bonusDecimal - _stableDecimal));
         uint256 lockingPeriod = lockingDuration * 1 days;
         lenders[msg.sender].currentId++;
         uint256 currentId = lenders[msg.sender].currentId;
@@ -178,7 +178,7 @@ contract FlexLender is IFlexLender, AccessControl {
         lenders[msg.sender].deposits[currentId] = Deposit(
             amount,
             apr,
-            rate * (10 ** (_bonusDecimal - _stableDecimal)),
+            rate,
             lockingPeriod,
             block.timestamp,
             block.timestamp
@@ -269,11 +269,11 @@ contract FlexLender is IFlexLender, AccessControl {
             msg.sender,
             id
         );
-        uint256 depositedAmount = lenders[msg.sender].amount;
-        uint256 stableAmount = lenders[msg.sender].amount + stableReward;
+        uint256 depositedAmount = lenders[msg.sender].deposits[id].amount;
+        uint256 stableAmount = depositedAmount + stableReward;
         delete lenders[msg.sender].deposits[id];
         poolSize -= depositedAmount;
-        _updateId(msg.sender);
+        // _updateId(msg.sender);
         _bonusToken.safeTransfer(msg.sender, bonusReward);
         _stableToken.safeTransfer(msg.sender, stableAmount);
         emit Withdrawn(msg.sender, id, stableAmount, bonusReward);
@@ -422,7 +422,7 @@ contract FlexLender is IFlexLender, AccessControl {
                 stableDiff,
                 lenders[_lender].deposits[_id].apr,
                 _YEAR
-            ),
+            ) / 1E2,
             _calculateFormula(
                 amount,
                 bonusDiff,
@@ -456,7 +456,7 @@ contract FlexLender is IFlexLender, AccessControl {
                 diff,
                 aprRounds[i].rate,
                 _YEAR
-            );
+            ) / 1E2;
             if (_lastUpdate > aprRounds[i].startDate) {
                 break;
             }
