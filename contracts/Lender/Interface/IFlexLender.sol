@@ -27,9 +27,16 @@ interface IFlexLender {
     }
 
     /**
+     * @notice Emits when new fund is deposited to the Lender Pool without locking period
+     * @param lender is the address of the `lender`
+     * @param amount is the stable tokens deposited by the lender
+     */
+    event BaseDeposited(address indexed lender, uint256 amount);
+
+    /**
      * @notice Emits when new fund is deposited to the Lender Pool
      * @param lender is the address of the `lender`
-     * @param id is the deposit ID, id '0' represents deposit without locking period
+     * @param id is the deposit ID
      * @param amount is the stable tokens deposited by the lender
      * @param lockingDuration is the duration of locking period
      * @param apr is the deposit APR for calculating stable rewards
@@ -47,9 +54,21 @@ interface IFlexLender {
     /**
      * @notice Emits when deposited funds withdrawn from the Lender Pool
      * @param lender is the address of the `lender`
-     * @param id is the deposit ID, id '0' represents deposit without locking period
+     * @param amount is the principal stable amount of deposit + stable Reward lender received based on Base APR
+     * @param bonusReward is the remaining Bonus rewards lender received based on the Rate
+     */
+    event BaseWithdrawn(
+        address indexed lender,
+        uint256 amount,
+        uint256 bonusReward
+    );
+
+    /**
+     * @notice Emits when deposited funds withdrawn from the Lender Pool for specific deposit
+     * @param lender is the address of the `lender`
+     * @param id is the deposit ID
      * @param amount is the principal stable amount of deposit + stable Reward lender received based on APR
-     * @param bonusReward is the remaining $TRADE rewards lender received based on the Rate
+     * @param bonusReward is the remaining Bonus rewards lender received based on the Rate
      */
     event Withdrawn(
         address indexed lender,
@@ -59,12 +78,26 @@ interface IFlexLender {
     );
 
     /**
-     * @notice Emits when lender claims Bonus rewards
+     * @notice Emits when lender claims Bonus rewards for specific deposit
      * @param lender is the address of the 'lender'
-     * @param id is the deposit ID, id '0' represents deposit without locking period
+     * @param id is the deposit ID
      * @param bonusReward is the accumulated Bonus rewards lender received based on the Rate
      */
     event BonusClaimed(address indexed lender, uint256 id, uint256 bonusReward);
+
+    /**
+     * @notice Emits when lender claims Bonus rewards from base deposit
+     * @param lender is the address of the 'lender'
+     * @param bonusReward is the accumulated Bonus rewards lender received based on the Base Rate
+     */
+    event BaseBonusClaimed(address indexed lender, uint256 bonusReward);
+
+    /**
+     * @notice Emits when lender claims Bonus rewards from all deposits
+     * @param lender is the address of the 'lender'
+     * @param bonusReward is the total accumulated Bonus rewards lender received based on the Rate
+     */
+    event AllBonusClaimed(address indexed lender, uint256 bonusReward);
 
     /**
      * @notice Emits when a lender tries to withdraw from pool before pool end date
@@ -165,7 +198,7 @@ interface IFlexLender {
      * Requirements:
      * - `amount` should be greater than zero
      * - `amount` must be approved from the stable token contract for the LenderPool
-     * Emits {Deposited} event
+     * Emits {BaseDeposited} event
      */
     function deposit(uint256 amount) external;
 
@@ -187,7 +220,7 @@ interface IFlexLender {
      * @dev `claimBonus` transfers all the accumulated bonus rewards to `msg.sender`
      * Requirements :
      * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
-     * Emits {BonusClaimed} event
+     * Emits {AllBonusClaimed} event
      */
     function claimAllBonuses() external;
 
@@ -196,7 +229,7 @@ interface IFlexLender {
      * @dev `claimBonus` transfers all the accumulated bonus rewards to `msg.sender`
      * Requirements :
      * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
-     * Emits {BonusClaimed} event
+     * Emits {BaseBonusClaimed} event
      */
     function claimBonus() external;
 
@@ -216,7 +249,7 @@ interface IFlexLender {
      * Requirements:
      * - `LenderPool` should have stable tokens more than or equal to lender stable rewards + principal amount
      * - `LenderPool` should have bonus tokens more than or equal to lender accumulated bonus rewards
-     * Emits {Withdrawn} event
+     * Emits {BaseWithdrawn} event
      */
     function withdraw() external;
 
