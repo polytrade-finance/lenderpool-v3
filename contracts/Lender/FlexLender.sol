@@ -104,9 +104,9 @@ contract FlexLender is IFlexLender, AccessControl {
     function switchAprBondingCurve(
         address newCurve
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_newCurve != address(0), "Invalid Curve Address");
+        require(newCurve != address(0), "Invalid Curve Address");
         require(
-            _newCurve.supportsInterface(_CURVE_INTERFACE_ID),
+            newCurve.supportsInterface(_CURVE_INTERFACE_ID),
             "Does not support Curve interface"
         );
         address oldCurve = address(_aprBondingCurve);
@@ -120,9 +120,9 @@ contract FlexLender is IFlexLender, AccessControl {
     function switchRateBondingCurve(
         address newCurve
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(_newCurve != address(0), "Invalid Curve Address");
+        require(newCurve != address(0), "Invalid Curve Address");
         require(
-            _newCurve.supportsInterface(_CURVE_INTERFACE_ID),
+            newCurve.supportsInterface(_CURVE_INTERFACE_ID),
             "Does not support Curve interface"
         );
         address oldCurve = address(_rateBondingCurve);
@@ -163,7 +163,7 @@ contract FlexLender is IFlexLender, AccessControl {
         lenders[msg.sender].pendingBonusReward += bonusReward;
         lenders[msg.sender].lastUpdateDate = block.timestamp;
         _stableToken.safeTransferFrom(msg.sender, address(this), amount);
-        emit Deposited(msg.sender, 0, amount, 0, 0, 0);
+        emit BaseDeposited(msg.sender, amount);
     }
 
     /**
@@ -187,8 +187,8 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 rate = _rateBondingCurve.getRate(lockingDuration) *
             (10 ** (_bonusDecimal - _stableDecimal));
         uint256 lockingPeriod = lockingDuration * 1 days;
-        lenders[msg.sender].currentId++;
         uint256 currentId = lenders[msg.sender].currentId;
+        lenders[msg.sender].currentId++;
         poolSize += amount;
         lenders[msg.sender].deposits[currentId] = Deposit(
             amount,
@@ -210,14 +210,17 @@ contract FlexLender is IFlexLender, AccessControl {
             _getTotalDeposit(msg.sender) != 0,
             "You have not deposited anything"
         );
-        _claimBonus();
+        uint256 bonusReward;
         for (
             uint256 i = lenders[msg.sender].startId;
             i < lenders[msg.sender].currentId;
             i++
         ) {
-            _claimBonus(i + 1);
+            bonusReward += _claimBonus(i);
         }
+        bonusReward += _claimBonus();
+        _bonusToken.safeTransfer(msg.sender, bonusReward);
+        emit AllBonusClaimed(msg.sender, bonusReward);
     }
 
     /**
@@ -228,7 +231,9 @@ contract FlexLender is IFlexLender, AccessControl {
             lenders[msg.sender].amount != 0,
             "You have not deposited anything"
         );
-        _claimBonus();
+        uint256 claimableBonus = _claimBonus();
+        _bonusToken.safeTransfer(msg.sender, claimableBonus);
+        emit BaseBonusClaimed(msg.sender, claimableBonus);
     }
 
     /**
@@ -239,7 +244,9 @@ contract FlexLender is IFlexLender, AccessControl {
             lenders[msg.sender].deposits[id].amount != 0,
             "You have nothing with this ID"
         );
-        _claimBonus(id);
+        uint256 bonusReward = _claimBonus(id);
+        _bonusToken.safeTransfer(msg.sender, bonusReward);
+        emit BonusClaimed(msg.sender, id, bonusReward);
     }
 
     /**
@@ -266,7 +273,7 @@ contract FlexLender is IFlexLender, AccessControl {
         poolSize -= depositedAmount;
         _bonusToken.safeTransfer(msg.sender, bonusAmount);
         _stableToken.safeTransfer(msg.sender, stableAmount);
-        emit Withdrawn(msg.sender, 0, stableAmount, bonusAmount);
+        emit BaseWithdrawn(msg.sender, stableAmount, bonusAmount);
     }
 
     /**
@@ -288,7 +295,7 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 stableAmount = depositedAmount + stableReward;
         delete lenders[msg.sender].deposits[id];
         poolSize -= depositedAmount;
-        // _updateId(msg.sender);
+        _updateId(msg.sender);
         _bonusToken.safeTransfer(msg.sender, bonusReward);
         _stableToken.safeTransfer(msg.sender, stableAmount);
         emit Withdrawn(msg.sender, id, stableAmount, bonusReward);
@@ -333,10 +340,9 @@ contract FlexLender is IFlexLender, AccessControl {
     /**
      * @dev It will called in claimBonus and claimAllBonus
      * @dev Calculates all stable and bonus rewards and updates deposit without locking period parameters
-     * @dev Transfers all bonus rewards to sender
-     * @dev emit {BonusClaimed} event
+     * @dev Updates msg.sender pendingRewards
      */
-    function _claimBonus() private {
+    function _claimBonus() private returns (uint256) {
         (
             uint256 baseStableReward,
             uint256 baseBonusReward
@@ -346,17 +352,15 @@ contract FlexLender is IFlexLender, AccessControl {
             lenders[msg.sender].pendingBonusReward;
         lenders[msg.sender].pendingBonusReward = 0;
         lenders[msg.sender].lastUpdateDate = block.timestamp;
-        _bonusToken.safeTransfer(msg.sender, claimableBonus);
-        emit BonusClaimed(msg.sender, 0, claimableBonus);
+        return claimableBonus;
     }
 
     /**
      * @dev It will called in claimBonus and claimAllBonus
      * @dev Calculates all bonus rewards for a specific deposit and updates lastClaimDate
-     * @dev Transfers all bonus rewards to sender
-     * @dev emit {BonusClaimed} event
+     * @dev Updates msg.sender lastClaimDate
      */
-    function _claimBonus(uint256 _id) private {
+    function _claimBonus(uint256 _id) private returns (uint256) {
         (, uint256 bonusReward) = _calculateRewards(msg.sender, _id);
         uint256 depositEndDate = lenders[msg.sender].deposits[_id].startDate +
             lenders[msg.sender].deposits[_id].lockingDuration;
@@ -364,8 +368,7 @@ contract FlexLender is IFlexLender, AccessControl {
             block.timestamp
             ? block.timestamp
             : depositEndDate;
-        _bonusToken.safeTransfer(msg.sender, bonusReward);
-        emit BonusClaimed(msg.sender, _id, bonusReward);
+        return bonusReward;
     }
 
     /**
@@ -378,24 +381,29 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 end = lenders[_lender].currentId;
         uint256 amount;
         for (uint256 i = start; i < end; i++) {
-            amount += lenders[_lender].deposits[i + 1].amount;
+            amount += lenders[_lender].deposits[i].amount;
             if (amount == 0) {
-                start = i + 2;
+                start = i + 1;
             } else {
                 amount = 0;
                 break;
             }
         }
         for (uint256 i = end; i > start; i--) {
-            amount += lenders[_lender].deposits[i].amount;
+            amount += lenders[_lender].deposits[i - 1].amount;
             if (amount == 0) {
                 end = i - 1;
             } else {
                 break;
             }
         }
-        lenders[_lender].startId = start;
-        lenders[_lender].currentId = end;
+        if (end == start) {
+            lenders[_lender].startId = 0;
+            lenders[_lender].currentId = 0;
+        } else {
+            lenders[_lender].startId = start;
+            lenders[_lender].currentId = end;
+        }
     }
 
     /**
