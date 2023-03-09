@@ -1,4 +1,5 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("hardhat-contract-sizer");
 require("dotenv").config();
 
 const { PRIVATE_KEY, ARCHIVAL_RPC } = process.env;
@@ -9,6 +10,7 @@ module.exports = {
   settings: { optimizer: { enabled: true, runs: 200 } },
   networks: {
     hardhat: {
+      allowUnlimitedContractSize: true,
       forking: {
         url: `${ARCHIVAL_RPC}`,
         blockNumber: 32228672,
