@@ -3,10 +3,11 @@ pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import "contracts/Token/Interface/IToken.sol";
 import "contracts/Lender/Interface/IFlexLender.sol";
 import "contracts/BondingCurve/Interface/IBondingCurve.sol";
+import "contracts/Verification/Interface/IVerification.sol";
+import "contracts/Strategy/Interface/IStrategy.sol";
 
 /**
  * @title Flexible Lender Pool contract
@@ -16,30 +17,37 @@ import "contracts/BondingCurve/Interface/IBondingCurve.sol";
  */
 contract FlexLender is IFlexLender, AccessControl {
     using SafeERC20 for IToken;
-    using ERC165Checker for address;
 
     mapping(address => Lender) public lenders;
     mapping(uint256 => RoundInfo) public aprRounds;
     mapping(uint256 => RoundInfo) public rateRounds;
 
-    uint256 public poolSize;
+    uint256 private _poolSize;
     uint256 private _withdrawPenaltyPercent;
     uint256 private _currentAprRound;
     uint256 private _currentRateRound;
     uint256 private _minLimit;
     uint256 private _maxLimit;
+    uint256 private _poolMaxLimit;
     uint256 private immutable _stableDecimal;
     uint256 private immutable _bonusDecimal;
     uint256 private immutable _minDeposit;
-    uint256 private immutable _poolMaxLimit;
     uint256 private constant _YEAR = 365 days;
-    bytes4 private constant _CURVE_INTERFACE_ID =
-        type(IBondingCurve).interfaceId;
+    bool private _verificationStatus;
 
     IToken private immutable _stableToken;
     IToken private immutable _bonusToken;
     IBondingCurve private _aprBondingCurve;
     IBondingCurve private _rateBondingCurve;
+    IVerification public verification;
+    IStrategy public strategy;
+
+    modifier isValid() {
+        if (_verificationStatus) {
+            require(verification.isValid(msg.sender), "You are not verified");
+        }
+        _;
+    }
 
     /**
      * @dev Sets the values for admin, stableToken, bonusToken, minDeposit,PoolMaxLimit
@@ -67,6 +75,57 @@ contract FlexLender is IFlexLender, AccessControl {
         _bonusDecimal = _bonusToken.decimals();
         _minDeposit = minDeposit_ * (10 ** _stableDecimal);
         _poolMaxLimit = poolMaxLimit_ * (10 ** _stableDecimal);
+    }
+
+    /**
+     * @dev See {IFlexLender-changePoolLimit}.
+     */
+    function changePoolLimit(
+        uint256 newLimit
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newLimit != 0, "Max limit can not be zero");
+        uint256 oldLimit = _poolMaxLimit;
+        _poolMaxLimit = newLimit * (10 ** _stableDecimal);
+        emit PoolLimitChanged(oldLimit, _poolMaxLimit);
+    }
+
+    /**
+     * @dev See {IFlexLender-changeVerificationStatus}.
+     */
+    function changeVerificationStatus() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        bool oldStatus = _verificationStatus;
+        _verificationStatus = oldStatus ? false : true;
+        emit VerificationStatusChanged(oldStatus, _verificationStatus);
+    }
+
+    /**
+     * @dev See {IFlexLender-switchVerification}.
+     */
+    function switchVerification(
+        address newVerification
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newVerification != address(0), "Invalid Verification Address");
+        address oldVerification = address(verification);
+        verification = IVerification(newVerification);
+        emit VerificationSwitched(oldVerification, newVerification);
+    }
+
+    /**
+     * @dev See {IFlexLender-switchStrategy}.
+     */
+    function switchStrategy(
+        address newStrategy
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(newStrategy != address(0), "Invalid Strategy Address");
+        address oldStrategy = address(strategy);
+        if (oldStrategy != address(0)) {
+            uint256 amount = strategy.getBalance();
+            strategy.withdraw(amount);
+            strategy = IStrategy(newStrategy);
+            _depositInStrategy(amount);
+        }
+        strategy = IStrategy(newStrategy);
+        emit StrategySwitched(oldStrategy, newStrategy);
     }
 
     /**
@@ -105,10 +164,6 @@ contract FlexLender is IFlexLender, AccessControl {
         address newCurve
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newCurve != address(0), "Invalid Curve Address");
-        require(
-            newCurve.supportsInterface(_CURVE_INTERFACE_ID),
-            "Does not support Curve interface"
-        );
         address oldCurve = address(_aprBondingCurve);
         _aprBondingCurve = IBondingCurve(newCurve);
         emit AprBondingCurveSwitched(oldCurve, newCurve);
@@ -121,10 +176,6 @@ contract FlexLender is IFlexLender, AccessControl {
         address newCurve
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newCurve != address(0), "Invalid Curve Address");
-        require(
-            newCurve.supportsInterface(_CURVE_INTERFACE_ID),
-            "Does not support Curve interface"
-        );
         address oldCurve = address(_rateBondingCurve);
         _rateBondingCurve = IBondingCurve(newCurve);
         emit RateBondingCurveSwitched(oldCurve, newCurve);
@@ -148,30 +199,33 @@ contract FlexLender is IFlexLender, AccessControl {
     /**
      * @dev See {IFlexLender-deposit}.
      */
-    function deposit(uint256 amount) external {
+    function deposit(uint256 amount) external isValid {
+        require(address(strategy) != address(0), "There is no Strategy");
         require(
-            _poolMaxLimit >= poolSize + amount,
+            _poolMaxLimit >= _poolSize + amount,
             "Pool has reached its limit"
         );
         require(amount >= _minDeposit, "Amount is less than Min. Deposit");
         (uint256 stableReward, uint256 bonusReward) = _calculateBaseRewards(
             msg.sender
         );
-        poolSize += amount;
+        _poolSize += amount;
         lenders[msg.sender].amount += amount;
         lenders[msg.sender].pendingStableReward += stableReward;
         lenders[msg.sender].pendingBonusReward += bonusReward;
         lenders[msg.sender].lastUpdateDate = block.timestamp;
         _stableToken.safeTransferFrom(msg.sender, address(this), amount);
+        _depositInStrategy(amount);
         emit BaseDeposited(msg.sender, amount);
     }
 
     /**
      * @dev See {IFlexLender-deposit}.
      */
-    function deposit(uint256 amount, uint256 lockingDuration) external {
+    function deposit(uint256 amount, uint256 lockingDuration) external isValid {
+        require(address(strategy) != address(0), "There is no Strategy");
         require(
-            _poolMaxLimit >= poolSize + amount,
+            _poolMaxLimit >= _poolSize + amount,
             "Pool has reached its limit"
         );
         require(amount >= _minDeposit, "Amount is less than Min. Deposit");
@@ -189,7 +243,7 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 lockingPeriod = lockingDuration * 1 days;
         uint256 currentId = lenders[msg.sender].currentId;
         lenders[msg.sender].currentId++;
-        poolSize += amount;
+        _poolSize += amount;
         lenders[msg.sender].deposits[currentId] = Deposit(
             amount,
             apr,
@@ -199,6 +253,7 @@ contract FlexLender is IFlexLender, AccessControl {
             block.timestamp
         );
         _stableToken.safeTransferFrom(msg.sender, address(this), amount);
+        _depositInStrategy(amount);
         emit Deposited(msg.sender, currentId, amount, lockingPeriod, apr, rate);
     }
 
@@ -270,7 +325,8 @@ contract FlexLender is IFlexLender, AccessControl {
         lenders[msg.sender].amount = 0;
         lenders[msg.sender].pendingBonusReward = 0;
         lenders[msg.sender].pendingStableReward = 0;
-        poolSize -= depositedAmount;
+        _poolSize -= depositedAmount;
+        strategy.withdraw(depositedAmount);
         _bonusToken.safeTransfer(msg.sender, bonusAmount);
         _stableToken.safeTransfer(msg.sender, stableAmount);
         emit BaseWithdrawn(msg.sender, stableAmount, bonusAmount);
@@ -294,8 +350,9 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 depositedAmount = lenders[msg.sender].deposits[id].amount;
         uint256 stableAmount = depositedAmount + stableReward;
         delete lenders[msg.sender].deposits[id];
-        poolSize -= depositedAmount;
+        _poolSize -= depositedAmount;
         _updateId(msg.sender);
+        strategy.withdraw(depositedAmount);
         _bonusToken.safeTransfer(msg.sender, bonusReward);
         _stableToken.safeTransfer(msg.sender, stableAmount);
         emit Withdrawn(msg.sender, id, stableAmount, bonusReward);
@@ -319,8 +376,9 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 withdrawFee = (depositedAmount * _withdrawPenaltyPercent) / 1E4;
         uint256 refundAmount = depositedAmount - withdrawFee;
         delete lenders[msg.sender].deposits[id];
-        poolSize -= depositedAmount;
+        _poolSize -= depositedAmount;
         _updateId(msg.sender);
+        strategy.withdraw(depositedAmount);
         _stableToken.safeTransfer(msg.sender, refundAmount);
         emit WithdrawnEmergency(msg.sender, id, refundAmount);
     }
@@ -335,6 +393,183 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 oldRate = _withdrawPenaltyPercent;
         _withdrawPenaltyPercent = newRate;
         emit WithdrawRateChanged(oldRate, newRate);
+    }
+
+    /**
+     * @dev See {IFixLender-getTotalDeposit}.
+     */
+    function getTotalDeposit(address lender) external view returns (uint256) {
+        return _getTotalDeposit(lender);
+    }
+
+    /**
+     * @dev See {IFixLender-getDeposit}.
+     */
+    function getDeposit(address lender) external view returns (uint256) {
+        return lenders[lender].amount;
+    }
+
+    /**
+     * @dev See {IFixLender-getDeposit}.
+     */
+    function getDeposit(
+        address lender,
+        uint256 id
+    ) external view returns (uint256) {
+        return lenders[lender].deposits[id].amount;
+    }
+
+    /**
+     * @dev See {IFixLender-getBonusRewards}.
+     */
+    function getBonusRewards(address lender) external view returns (uint256) {
+        (, uint256 baseBonusReward) = _calculateBaseRewards(lender);
+        return baseBonusReward + lenders[lender].pendingBonusReward;
+    }
+
+    /**
+     * @dev See {IFixLender-getBonusRewards}.
+     */
+    function getBonusRewards(
+        address lender,
+        uint256 id
+    ) external view returns (uint256) {
+        (, uint256 bonusReward) = _calculateRewards(lender, id);
+        return bonusReward;
+    }
+
+    /**
+     * @dev See {IFixLender-getStableRewards}.
+     */
+    function getStableRewards(address lender) external view returns (uint256) {
+        (uint256 baseStableReward, ) = _calculateBaseRewards(lender);
+        return baseStableReward + lenders[lender].pendingStableReward;
+    }
+
+    /**
+     * @dev See {IFixLender-getStableRewards}.
+     */
+    function getStableRewards(
+        address lender,
+        uint256 id
+    ) external view returns (uint256) {
+        (uint256 stableReward, ) = _calculateRewards(lender, id);
+        return stableReward;
+    }
+
+    /**
+     * @dev See {IFixLender-getApr}.
+     */
+    function getApr(
+        address lender,
+        uint256 id
+    ) external view returns (uint256) {
+        return lenders[lender].deposits[id].apr;
+    }
+
+    /**
+     * @dev See {IFixLender-getRate}.
+     */
+    function getRate(
+        address lender,
+        uint256 id
+    ) external view returns (uint256) {
+        return
+            lenders[lender].deposits[id].rate /
+            (10 ** (_bonusDecimal - _stableDecimal));
+    }
+
+    /**
+     * @dev See {IFixLender-getBaseApr}.
+     */
+    function getBaseApr() external view returns (uint256) {
+        return aprRounds[_currentAprRound].rate;
+    }
+
+    /**
+     * @dev See {IFixLender-getBaseRate}.
+     */
+    function getBaseRate() external view returns (uint256) {
+        return
+            rateRounds[_currentRateRound].rate /
+            (10 ** (_bonusDecimal - _stableDecimal));
+    }
+
+    /**
+     * @dev See {IFixLender-getLockingDuration}.
+     */
+    function getLockingDuration(
+        address lender,
+        uint256 id
+    ) external view returns (uint256) {
+        return lenders[lender].deposits[id].lockingDuration / 1 days;
+    }
+
+    /**
+     * @dev See {IFixLender-getMinLockingDuration}.
+     */
+    function getMinLockingDuration() external view returns (uint256) {
+        return _minLimit;
+    }
+
+    /**
+     * @dev See {IFixLender-getMaxLockingDuration}.
+     */
+    function getMaxLockingDuration() external view returns (uint256) {
+        return _maxLimit;
+    }
+
+    /**
+     * @dev See {IFixLender-getPoolSize}.
+     */
+    function getPoolSize() external view returns (uint256) {
+        return _poolSize;
+    }
+
+    /**
+     * @dev See {IFixLender-getMaxPoolSize}.
+     */
+    function getMaxPoolSize() external view returns (uint256) {
+        return _poolMaxLimit;
+    }
+
+    /**
+     * @dev See {IFixLender-getVerificationStatus}.
+     */
+    function getVerificationStatus() external view returns (bool) {
+        return _verificationStatus;
+    }
+
+    /**
+     * @dev See {IFixLender-getActiveDeposits}.
+     */
+    function getActiveDeposits(
+        address lender
+    ) external view returns (uint256[] memory) {
+        uint256 actives = _activeCount(lender);
+        uint256 j;
+        uint256[] memory activeDeposits = new uint256[](actives);
+        for (
+            uint256 i = lenders[lender].startId;
+            i < lenders[lender].currentId;
+            i++
+        ) {
+            if (lenders[lender].deposits[i].amount != 0) {
+                activeDeposits[j] = i;
+                j++;
+            }
+        }
+        return activeDeposits;
+    }
+
+    /**
+     * @notice `_depositInStrategy` deposits stable token to external protocol.
+     * @dev Funds will be deposited to a Strategy (external protocols) like Aave, compound
+     * @param _amount, total amount to be deposited.
+     */
+    function _depositInStrategy(uint _amount) private {
+        _stableToken.approve(address(strategy), _amount);
+        strategy.deposit(_amount);
     }
 
     /**
@@ -359,6 +594,7 @@ contract FlexLender is IFlexLender, AccessControl {
      * @dev It will called in claimBonus and claimAllBonus
      * @dev Calculates all bonus rewards for a specific deposit and updates lastClaimDate
      * @dev Updates msg.sender lastClaimDate
+     * @param _id, id of the deposit
      */
     function _claimBonus(uint256 _id) private returns (uint256) {
         (, uint256 bonusReward) = _calculateRewards(msg.sender, _id);
@@ -375,6 +611,7 @@ contract FlexLender is IFlexLender, AccessControl {
      * @dev Updates the startId and currentId of deposits with lokcing period
      * @dev Loops through all deposits from start and end and updates id
      * @dev Called after a deposit has been withdrawn
+     * @param _lender, address of lender
      */
     function _updateId(address _lender) private {
         uint256 start = lenders[_lender].startId;
@@ -404,6 +641,25 @@ contract FlexLender is IFlexLender, AccessControl {
             lenders[_lender].startId = start;
             lenders[_lender].currentId = end;
         }
+    }
+
+    /**
+     * @dev Calculates number of active deposits by lender
+     * @dev Loops through all deposits from start and end and updates count
+     * @param _lender, address of lender
+     */
+    function _activeCount(address _lender) private view returns (uint256) {
+        uint256 count;
+        for (
+            uint256 i = lenders[_lender].startId;
+            i < lenders[_lender].currentId;
+            i++
+        ) {
+            if (lenders[_lender].deposits[i].amount != 0) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /**
@@ -527,24 +783,24 @@ contract FlexLender is IFlexLender, AccessControl {
             i < lenders[_lender].currentId;
             i++
         ) {
-            depositedAmount += lenders[_lender].deposits[i + 1].amount;
+            depositedAmount += lenders[_lender].deposits[i].amount;
         }
         return depositedAmount;
     }
 
     /**
      * @dev Calculates the bonus and stable rewards for all lenders
-     * @param amount is the amount of deposited stable tokens
-     * @param duration is the passed duration from last updated rewards
-     * @param rate is the rate for bonus reward or apr for stable reward
-     * @param period is the period that calculates rewards based on that
+     * @param _amount is the amount of deposited stable tokens
+     * @param _duration is the passed duration from last updated rewards
+     * @param _rate is the rate for bonus reward or apr for stable reward
+     * @param _period is the period that calculates rewards based on that
      */
     function _calculateFormula(
-        uint256 amount,
-        uint256 duration,
-        uint256 rate,
-        uint256 period
+        uint256 _amount,
+        uint256 _duration,
+        uint256 _rate,
+        uint256 _period
     ) private pure returns (uint256) {
-        return ((amount * duration * rate) / 1E2) / period;
+        return ((_amount * _duration * _rate) / 1E2) / _period;
     }
 }
