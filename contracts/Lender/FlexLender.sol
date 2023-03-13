@@ -19,12 +19,10 @@ contract FlexLender is IFlexLender, AccessControl {
     using ERC165Checker for address;
 
     mapping(address => Lender) public lenders;
-    mapping(uint256 => RoundInfo) public aprRounds;
-    mapping(uint256 => RoundInfo) public rateRounds;
+    mapping(uint256 => RateInfo) public rateRounds;
 
     uint256 public poolSize;
     uint256 private _withdrawPenaltyPercent;
-    uint256 private _currentAprRound;
     uint256 private _currentRateRound;
     uint256 private _minLimit;
     uint256 private _maxLimit;
@@ -70,32 +68,31 @@ contract FlexLender is IFlexLender, AccessControl {
     }
 
     /**
-     * @dev See {IFlexLender-changeBaseApr}.
+     * @dev See {IFlexLender-changeBaseRates}.
      */
-    function changeBaseApr(
-        uint256 baseStableApr
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(baseStableApr <= 10000, "Invalid Stable Apr");
-        uint256 oldApr = aprRounds[_currentAprRound].rate;
-        uint256 newApr = baseStableApr;
-        _currentAprRound++;
-        aprRounds[_currentAprRound] = RoundInfo(newApr, block.timestamp);
-        emit BaseAprChanged(oldApr, newApr);
-    }
-
-    /**
-     * @dev See {IFlexLender-changeBaseRate}.
-     */
-    function changeBaseRate(
+    function changeBaseRates(
+        uint256 baseStableApr,
         uint256 baseBonusRate
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(baseStableApr <= 10000, "Invalid Stable Apr");
         require(baseBonusRate <= 10000, "Invalid Bonus Rate");
-        uint256 oldRate = rateRounds[_currentRateRound].rate;
-        uint256 newRate = baseBonusRate *
+        uint256 oldStableApr = rateRounds[_currentRateRound].stableApr;
+        uint256 oldBonusRate = rateRounds[_currentRateRound].bonusRate;
+        uint256 newStableApr = baseStableApr / 1E2;
+        uint256 newBonusRate = baseBonusRate *
             (10 ** (_bonusDecimal - _stableDecimal));
         _currentRateRound++;
-        rateRounds[_currentRateRound] = RoundInfo(newRate, block.timestamp);
-        emit BaseRateChanged(oldRate, newRate);
+        rateRounds[_currentRateRound] = RateInfo(
+            newStableApr,
+            newBonusRate,
+            block.timestamp
+        );
+        emit BaseRateChanged(
+            oldStableApr,
+            newStableApr,
+            oldBonusRate,
+            newBonusRate
+        );
     }
 
     /**
@@ -196,6 +193,7 @@ contract FlexLender is IFlexLender, AccessControl {
             rate,
             lockingPeriod,
             block.timestamp,
+            block.timestamp + lockingPeriod,
             block.timestamp
         );
         _stableToken.safeTransferFrom(msg.sender, address(this), amount);
@@ -361,13 +359,12 @@ contract FlexLender is IFlexLender, AccessControl {
      * @dev Updates msg.sender lastClaimDate
      */
     function _claimBonus(uint256 _id) private returns (uint256) {
-        (, uint256 bonusReward) = _calculateRewards(msg.sender, _id);
-        uint256 depositEndDate = lenders[msg.sender].deposits[_id].startDate +
-            lenders[msg.sender].deposits[_id].lockingDuration;
-        lenders[msg.sender].deposits[_id].lastClaimDate = depositEndDate >
-            block.timestamp
-            ? block.timestamp
-            : depositEndDate;
+        uint256 depositEndDate = lenders[msg.sender].deposits[_id].endDate;
+        uint256 endDate = block.timestamp > depositEndDate
+            ? depositEndDate
+            : block.timestamp;
+        (, uint256 bonusReward) = _calculateRewards(msg.sender, _id, endDate);
+        lenders[msg.sender].deposits[_id].lastClaimDate = endDate;
         return bonusReward;
     }
 
@@ -415,29 +412,50 @@ contract FlexLender is IFlexLender, AccessControl {
     ) private view returns (uint256, uint256) {
         uint256 amount = lenders[_lender].amount;
         uint256 lastUpdate = lenders[_lender].lastUpdateDate;
-        return (
-            _calculateBaseStableReward(amount, lastUpdate),
-            _calculateBaseBonusReward(amount, lastUpdate)
-        );
+        uint256 calculatedStableReward;
+        uint256 calculatedBonusReward;
+        for (uint256 i = _currentRateRound; i > 0; i--) {
+            uint256 endDate = i != _currentRateRound
+                ? rateRounds[i + 1].startDate
+                : block.timestamp;
+            uint256 startDate = lastUpdate > rateRounds[i].startDate
+                ? lastUpdate
+                : rateRounds[i].startDate;
+            uint256 diff = endDate - startDate;
+            calculatedStableReward += _calculateFormula(
+                amount,
+                diff,
+                rateRounds[i].stableApr,
+                _YEAR
+            );
+            calculatedBonusReward += _calculateFormula(
+                amount,
+                diff,
+                rateRounds[i].bonusRate,
+                _YEAR
+            );
+            if (lastUpdate > rateRounds[i].startDate) {
+                break;
+            }
+        }
+        return (calculatedStableReward, calculatedBonusReward);
     }
 
     /**
      * @dev Calculates both the bonus reward and stable rewards for deposits with locking period
      * @param _lender is the address of lender
      * @param _id is the id of deposit
+     * @param _endDate is the end date of calculation
      */
     function _calculateRewards(
         address _lender,
-        uint256 _id
+        uint256 _id,
+        uint256 _endDate
     ) private view returns (uint256, uint256) {
-        uint256 depositEndDate = lenders[_lender].deposits[_id].startDate +
-            lenders[_lender].deposits[_id].lockingDuration;
         uint256 amount = lenders[_lender].deposits[_id].amount;
-        uint256 endDate = block.timestamp > depositEndDate
-            ? depositEndDate
-            : block.timestamp;
-        uint256 stableDiff = endDate - lenders[_lender].deposits[_id].startDate;
-        uint256 bonusDiff = endDate -
+        uint256 stableDiff = _endDate -
+            lenders[_lender].deposits[_id].startDate;
+        uint256 bonusDiff = _endDate -
             lenders[_lender].deposits[_id].lastClaimDate;
         return (
             _calculateFormula(
@@ -453,67 +471,6 @@ contract FlexLender is IFlexLender, AccessControl {
                 lenders[_lender].deposits[_id].lockingDuration
             )
         );
-    }
-
-    /**
-     * @dev Calculates stable rewards for the deposit without locking period
-     * @dev This will be called for stable rewards in _calculateBaseRewards function
-     * @param _amount is the deposited amount
-     * @param _lastUpdate is the timestamp of calculation start
-     */
-    function _calculateBaseStableReward(
-        uint256 _amount,
-        uint256 _lastUpdate
-    ) private view returns (uint256) {
-        uint256 calculatedReward;
-        for (uint256 i = _currentAprRound; i > 0; i--) {
-            uint256 endDate = i != _currentAprRound
-                ? aprRounds[i + 1].startDate
-                : block.timestamp;
-            uint256 startDate = _lastUpdate > aprRounds[i].startDate
-                ? _lastUpdate
-                : aprRounds[i].startDate;
-            uint256 diff = endDate - startDate;
-            calculatedReward +=
-                _calculateFormula(_amount, diff, aprRounds[i].rate, _YEAR) /
-                1E2;
-            if (_lastUpdate > aprRounds[i].startDate) {
-                break;
-            }
-        }
-        return calculatedReward;
-    }
-
-    /**
-     * @dev Calculates bonus rewards for the deposit without locking period
-     * @dev This will be called for bonus rewards in _calculateBaseRewards function
-     * @param _amount is the deposited amount
-     * @param _lastUpdate is the timestamp of calculation start
-     */
-    function _calculateBaseBonusReward(
-        uint256 _amount,
-        uint256 _lastUpdate
-    ) private view returns (uint256) {
-        uint256 calculatedReward;
-        for (uint256 i = _currentRateRound; i > 0; i--) {
-            uint256 endDate = i != _currentRateRound
-                ? rateRounds[i + 1].startDate
-                : block.timestamp;
-            uint256 startDate = _lastUpdate > rateRounds[i].startDate
-                ? _lastUpdate
-                : rateRounds[i].startDate;
-            uint256 diff = endDate - startDate;
-            calculatedReward += _calculateFormula(
-                _amount,
-                diff,
-                rateRounds[i].rate,
-                _YEAR
-            );
-            if (_lastUpdate > rateRounds[i].startDate) {
-                break;
-            }
-        }
-        return calculatedReward;
     }
 
     /**

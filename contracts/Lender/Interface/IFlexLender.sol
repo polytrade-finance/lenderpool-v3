@@ -18,11 +18,13 @@ interface IFlexLender {
         uint256 rate;
         uint256 lockingDuration;
         uint256 startDate;
+        uint256 endDate;
         uint256 lastClaimDate;
     }
 
-    struct RoundInfo {
-        uint256 rate;
+    struct RateInfo {
+        uint256 stableApr;
+        uint256 bonusRate;
         uint256 startDate;
     }
 
@@ -160,20 +162,19 @@ interface IFlexLender {
     );
 
     /**
-     * @notice Emits when new APR is changed for base pool
-     * @dev Emitted when changeBaseApr function is called by owner
-     * @param oldAPR is the old APR contract percentage without decimals
-     * @param newAPR is the new APR contract percentage without decimals
+     * @notice Emits when new apr and rate is set for base pool
+     * @dev Emitted when `changeBaseRates` function is called by admin
+     * @param oldStableApr is the old apr for calculating stable rewards
+     * @param newStableApr is the new apr for calculating stable rewards
+     * @param oldBonusRate is the old rate for calculating bonus rewards
+     * @param newBonusRate is the new rate for calculating bonus rewards
      */
-    event BaseAprChanged(uint256 oldAPR, uint256 newAPR);
-
-    /**
-     * @notice Emits when new rate is set for base pool
-     * @dev Emitted when changeBaseRate function is called by owner
-     * @param oldRate is the old rate for calculating bonus rewards with 2 decimals
-     * @param newRate is the new rate for calculating bonus rewards with 2 decimals
-     */
-    event BaseRateChanged(uint256 oldRate, uint256 newRate);
+    event BaseRateChanged(
+        uint256 oldStableApr,
+        uint256 newStableApr,
+        uint256 oldBonusRate,
+        uint256 newBonusRate
+    );
 
     /**
      * @notice Emits when new limit is set locking duration
@@ -294,18 +295,13 @@ interface IFlexLender {
     function switchRateBondingCurve(address newCurve) external;
 
     /**
-     * @dev Changes the the APR for deposits without locking period
-     * @param newApr is the new APR in percentage without decimals
-     * Emits {BaseAprChanged} event
-     */
-    function changeBaseApr(uint256 newApr) external;
-
-    /**
-     * @dev Changes the Rate that calculates bonus rewards and affects the future deposits
+     * @dev Changes the Apr and Rate that calculates stable and bonus rewards
+     * @dev Only affects the future deposits
+     * @param newApr is the new apr percentage with 2 decimals
      * @param newRate is the new rate with 2 decimals
      * Emits {BaseRateChanged} event
      */
-    function changeBaseRate(uint256 newRate) external;
+    function changeBaseRates(uint256 newApr, uint256 newRate) external;
 
     /**
      * @dev Changes the minimum and maximum limit of locking period in days
