@@ -214,7 +214,9 @@ contract FlexLender is IFlexLender, AccessControl {
             i < lenders[msg.sender].currentId;
             i++
         ) {
-            bonusReward += _claimBonus(i);
+            if (lenders[msg.sender].deposits[i].amount != 0) {
+                bonusReward += _claimBonus(i);
+            }
         }
         bonusReward += _claimBonus();
         _bonusToken.safeTransfer(msg.sender, bonusReward);

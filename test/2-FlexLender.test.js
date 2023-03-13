@@ -1091,6 +1091,55 @@ describe("Flexible Lender Pool", function () {
         expect(poolSize).to.be.equal(3 * amount);
       }
     });
+
+    it("Should deposit 100 stable for 3 times with 90, 180, 365 locking days and withdraw second deposit after 180 days and claim rest after 365 days", async function () {
+      const bonusAmount = await toBonus("300");
+      const totalStableAmount = await toStable("300");
+      const stableAmount = await toStable("100");
+      await stableToken.transfer(addresses[1], totalStableAmount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, totalStableAmount);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256,uint256)"](stableAmount, SamplePeriod);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256,uint256)"](stableAmount, 180);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256,uint256)"](stableAmount, 365);
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
+      // 180 days passed
+      const passedPeriod = 180 * DAY;
+      await time.increase(passedPeriod);
+      const rate1 = await rateCurve.getRate(SamplePeriod);
+      const rate2 = await rateCurve.getRate(180);
+      const rate3 = await rateCurve.getRate(365);
+      const expectedBonus1 =
+        (100 * SamplePeriod * DAY * (rate1 / 100)) / (SamplePeriod * DAY);
+      const expectedBonus2 =
+        (100 * passedPeriod * (rate2 / 100)) / passedPeriod;
+      const beforeClaim = await bonusToken.balanceOf(addresses[1]);
+      await lenderContract.connect(accounts[1])["withdraw(uint256)"](1);
+      const afterClaim = await bonusToken.balanceOf(addresses[1]);
+      const bonusBalance = afterClaim.sub(beforeClaim);
+      const actualBonus = parseFloat(await fromBonus(bonusBalance));
+      expect(actualBonus).to.be.within(expectedBonus2, expectedBonus2 + 0.001);
+      const passedPeriod2 = 185 * DAY;
+      await time.increase(passedPeriod2);
+      const expectedBonus4 = (100 * (365 * DAY) * (rate3 / 100)) / (365 * DAY);
+      const secondExpected = expectedBonus1 + expectedBonus4;
+      const beforeClaim2 = await bonusToken.balanceOf(addresses[1]);
+      await lenderContract.connect(accounts[1]).claimAllBonuses();
+      const afterClaim2 = await bonusToken.balanceOf(addresses[1]);
+      const bonusBalance2 = afterClaim2.sub(beforeClaim2);
+      const actualBonus2 = parseFloat(await fromBonus(bonusBalance2));
+      expect(actualBonus2).to.be.within(
+        secondExpected - 0.00001,
+        secondExpected
+      );
+    });
   });
   describe("Emergency Withdraw", function () {
     beforeEach(async function () {
