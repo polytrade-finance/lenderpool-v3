@@ -282,12 +282,12 @@ contract FlexLender is IFlexLender, AccessControl {
             lenders[msg.sender].deposits[id].amount != 0,
             "You have nothing with this ID"
         );
-        uint256 depositEndDate = lenders[msg.sender].deposits[id].startDate +
-            lenders[msg.sender].deposits[id].lockingDuration;
+        uint256 depositEndDate = lenders[msg.sender].deposits[id].endDate;
         require(block.timestamp >= depositEndDate, "You can not withdraw yet");
         (uint256 stableReward, uint256 bonusReward) = _calculateRewards(
             msg.sender,
-            id
+            id,
+            depositEndDate
         );
         uint256 depositedAmount = lenders[msg.sender].deposits[id].amount;
         uint256 stableAmount = depositedAmount + stableReward;

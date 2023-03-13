@@ -174,7 +174,7 @@ describe("Flexible Lender Pool", function () {
         .to.emit(lenderContract, "BaseRateChanged")
         .withArgs(
           0,
-          await toApr(SampleAPR),
+          SampleAPR / 100,
           0,
           await toRate(SampleRate, BonusDecimal, StableDecimal)
         );
@@ -184,8 +184,8 @@ describe("Flexible Lender Pool", function () {
       await expect(lenderContract.changeBaseRates(SampleAPR2, SampleRate))
         .to.emit(lenderContract, "BaseRateChanged")
         .withArgs(
-          await toApr(SampleAPR),
-          await toApr(SampleAPR2),
+          SampleAPR / 100,
+          SampleAPR2 / 100,
           await toRate(SampleRate, BonusDecimal, StableDecimal),
           await toRate(SampleRate, BonusDecimal, StableDecimal)
         );
@@ -195,8 +195,8 @@ describe("Flexible Lender Pool", function () {
       await expect(lenderContract.changeBaseRates(SampleAPR2, SampleRate2))
         .to.emit(lenderContract, "BaseRateChanged")
         .withArgs(
-          await toApr(SampleAPR2),
-          await toApr(SampleAPR2),
+          SampleAPR2 / 100,
+          SampleAPR2 / 100,
           await toRate(SampleRate, BonusDecimal, StableDecimal),
           await toRate(SampleRate2, BonusDecimal, StableDecimal)
         );
@@ -955,8 +955,7 @@ describe("Flexible Lender Pool", function () {
         PoolMaxLimit
       );
       await lenderContract.deployed();
-      await lenderContract.changeBaseApr(SampleAPR);
-      await lenderContract.changeBaseRate(SampleRate);
+      await lenderContract.changeBaseRates(SampleAPR, SampleRate);
       await lenderContract.changeDurationLimit(
         LockingMinLimit,
         LockingMaxLimit
@@ -1103,8 +1102,7 @@ describe("Flexible Lender Pool", function () {
         PoolMaxLimit
       );
       await lenderContract.deployed();
-      await lenderContract.changeBaseApr(SampleAPR);
-      await lenderContract.changeBaseRate(SampleRate);
+      await lenderContract.changeBaseRates(SampleAPR, SampleRate);
       await lenderContract.changeDurationLimit(
         LockingMinLimit,
         LockingMaxLimit
