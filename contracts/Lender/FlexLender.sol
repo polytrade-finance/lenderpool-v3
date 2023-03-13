@@ -191,6 +191,7 @@ contract FlexLender is IFlexLender, AccessControl {
             rate * (10 ** (_bonusDecimal - _stableDecimal)),
             lockingPeriod,
             block.timestamp,
+            block.timestamp + lockingPeriod,
             block.timestamp
         );
         _stableToken.safeTransferFrom(msg.sender, address(this), amount);
@@ -264,13 +265,12 @@ contract FlexLender is IFlexLender, AccessControl {
      * @dev emit {BonusClaimed} event
      */
     function _claimBonus(uint256 _id) private {
-        (, uint256 bonusReward) = _calculateRewards(msg.sender, _id);
-        uint256 depositEndDate = lenders[msg.sender].deposits[_id].startDate +
-            lenders[msg.sender].deposits[_id].lockingDuration;
-        lenders[msg.sender].deposits[_id].lastClaimDate = depositEndDate >
-            block.timestamp
-            ? block.timestamp
-            : depositEndDate;
+        uint256 depositEndDate = lenders[msg.sender].deposits[_id].endDate;
+        uint256 endDate = block.timestamp > depositEndDate
+            ? depositEndDate
+            : block.timestamp;
+        (, uint256 bonusReward) = _calculateRewards(msg.sender, _id, endDate);
+        lenders[msg.sender].deposits[_id].lastClaimDate = endDate;
         _bonusToken.safeTransfer(msg.sender, bonusReward);
         emit BonusClaimed(msg.sender, _id, bonusReward);
     }
@@ -317,19 +317,17 @@ contract FlexLender is IFlexLender, AccessControl {
      * @dev Calculates both the bonus reward and stable rewards for deposits with locking period
      * @param _lender is the address of lender
      * @param _id is the id of deposit
+     * @param _endDate is the end date of calculation
      */
     function _calculateRewards(
         address _lender,
-        uint256 _id
+        uint256 _id,
+        uint256 _endDate
     ) private view returns (uint256, uint256) {
-        uint256 depositEndDate = lenders[_lender].deposits[_id].startDate +
-            lenders[_lender].deposits[_id].lockingDuration;
         uint256 amount = lenders[_lender].deposits[_id].amount;
-        uint256 endDate = block.timestamp > depositEndDate
-            ? depositEndDate
-            : block.timestamp;
-        uint256 stableDiff = endDate - lenders[_lender].deposits[_id].startDate;
-        uint256 bonusDiff = endDate -
+        uint256 stableDiff = _endDate -
+            lenders[_lender].deposits[_id].startDate;
+        uint256 bonusDiff = _endDate -
             lenders[_lender].deposits[_id].lastClaimDate;
         return (
             _calculateFormula(

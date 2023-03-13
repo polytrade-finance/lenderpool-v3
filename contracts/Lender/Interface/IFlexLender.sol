@@ -18,6 +18,7 @@ interface IFlexLender {
         uint256 rate;
         uint256 lockingDuration;
         uint256 startDate;
+        uint256 endDate;
         uint256 lastClaimDate;
     }
 
