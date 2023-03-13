@@ -191,7 +191,6 @@ contract FlexLender is IFlexLender, AccessControl {
             rate * (10 ** (_bonusDecimal - _stableDecimal)),
             lockingPeriod,
             block.timestamp,
-            block.timestamp + lockingPeriod,
             block.timestamp
         );
         _stableToken.safeTransferFrom(msg.sender, address(this), amount);
@@ -265,7 +264,8 @@ contract FlexLender is IFlexLender, AccessControl {
      * @dev emit {BonusClaimed} event
      */
     function _claimBonus(uint256 _id) private {
-        uint256 depositEndDate = lenders[msg.sender].deposits[_id].endDate;
+        uint256 depositEndDate = lenders[msg.sender].deposits[_id].startDate +
+            lenders[msg.sender].deposits[_id].lockingDuration;
         uint256 endDate = block.timestamp > depositEndDate
             ? depositEndDate
             : block.timestamp;
