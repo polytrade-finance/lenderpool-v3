@@ -434,10 +434,12 @@ contract FlexLender is IFlexLender, AccessControl {
         address lender,
         uint256 id
     ) external view returns (uint256) {
-        uint256 depositEndDate = lenders[msg.sender].deposits[id].endDate;
-        (, uint256 bonusReward) = _calculateRewards(lender, id, block.timestamp > depositEndDate
-            ? depositEndDate
-            : block.timestamp);
+        uint256 depositEndDate = lenders[lender].deposits[id].endDate;
+        (, uint256 bonusReward) = _calculateRewards(
+            lender,
+            id,
+            block.timestamp > depositEndDate ? depositEndDate : block.timestamp
+        );
         return bonusReward;
     }
 
@@ -456,10 +458,12 @@ contract FlexLender is IFlexLender, AccessControl {
         address lender,
         uint256 id
     ) external view returns (uint256) {
-        uint256 depositEndDate = lenders[msg.sender].deposits[id].endDate;
-        (uint256 stableReward, ) = _calculateRewards(lender, id, block.timestamp > depositEndDate
-            ? depositEndDate
-            : block.timestamp);
+        uint256 depositEndDate = lenders[lender].deposits[id].endDate;
+        (uint256 stableReward, ) = _calculateRewards(
+            lender,
+            id,
+            block.timestamp > depositEndDate ? depositEndDate : block.timestamp
+        );
         return stableReward;
     }
 

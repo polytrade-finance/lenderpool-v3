@@ -869,6 +869,8 @@ describe("Flexible Lender Pool", function () {
         PoolMaxLimit
       );
       await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
       await lenderContract.changeBaseRates(SampleAPR, SampleRate);
       await lenderContract.changeDurationLimit(
         LockingMinLimit,
@@ -983,6 +985,8 @@ describe("Flexible Lender Pool", function () {
         PoolMaxLimit
       );
       await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
       await lenderContract.changeBaseRates(SampleAPR, SampleRate);
       await lenderContract.changeDurationLimit(
         LockingMinLimit,
@@ -1124,6 +1128,8 @@ describe("Flexible Lender Pool", function () {
       const bonusAmount = await toBonus("300");
       const totalStableAmount = await toStable("300");
       const stableAmount = await toStable("100");
+      await stableToken.transfer(lenderContract.address, stableAmount);
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
       await stableToken.transfer(addresses[1], totalStableAmount);
       await stableToken
         .connect(accounts[1])
@@ -1179,6 +1185,8 @@ describe("Flexible Lender Pool", function () {
         PoolMaxLimit
       );
       await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
       await lenderContract.changeBaseRates(SampleAPR, SampleRate);
       await lenderContract.changeDurationLimit(
         LockingMinLimit,
@@ -1326,8 +1334,7 @@ describe("Flexible Lender Pool", function () {
       await lenderContract.deployed();
       await lenderContract.switchStrategy(strategy.address);
       await strategy.grantRole(LenderPoolAccess, lenderContract.address);
-      await lenderContract.changeBaseApr(SampleAPR);
-      await lenderContract.changeBaseRate(SampleRate);
+      await lenderContract.changeBaseRates(SampleAPR, SampleRate);
       await lenderContract.changeDurationLimit(
         LockingMinLimit,
         LockingMaxLimit
@@ -1351,7 +1358,7 @@ describe("Flexible Lender Pool", function () {
     it("Should get Base Apr", async function () {
       expect(
         await lenderContract.connect(accounts[2]).getBaseApr()
-      ).to.be.equal(SampleAPR);
+      ).to.be.equal(SampleAPR / 100);
     });
 
     it("Should get Base Rate", async function () {
