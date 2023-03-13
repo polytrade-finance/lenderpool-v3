@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import "contracts/Token/Interface/IToken.sol";
 import "contracts/Lender/Interface/IFlexLender.sol";
 import "contracts/BondingCurve/Interface/IBondingCurve.sol";
@@ -17,6 +18,7 @@ import "contracts/Strategy/Interface/IStrategy.sol";
  */
 contract FlexLender is IFlexLender, AccessControl {
     using SafeERC20 for IToken;
+    using ERC165Checker for address;
 
     mapping(address => Lender) public lenders;
     mapping(uint256 => RateInfo) public rateRounds;
@@ -31,6 +33,12 @@ contract FlexLender is IFlexLender, AccessControl {
     uint256 private immutable _bonusDecimal;
     uint256 private immutable _minDeposit;
     uint256 private constant _YEAR = 365 days;
+    bytes4 private constant _CURVE_INTERFACE_ID =
+        type(IBondingCurve).interfaceId;
+    bytes4 private constant _STRATEGY_INTERFACE_ID =
+        type(IStrategy).interfaceId;
+    bytes4 private constant _VERIFICATION_INTERFACE_ID =
+        type(IVerification).interfaceId;
     bool private _verificationStatus;
 
     IToken private immutable _stableToken;
@@ -103,6 +111,10 @@ contract FlexLender is IFlexLender, AccessControl {
         address newVerification
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newVerification != address(0), "Invalid Verification Address");
+        require(
+            newVerification.supportsInterface(_VERIFICATION_INTERFACE_ID),
+            "Does not support Verification interface"
+        );
         address oldVerification = address(verification);
         verification = IVerification(newVerification);
         emit VerificationSwitched(oldVerification, newVerification);
@@ -115,6 +127,10 @@ contract FlexLender is IFlexLender, AccessControl {
         address newStrategy
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newStrategy != address(0), "Invalid Strategy Address");
+        require(
+            newStrategy.supportsInterface(_STRATEGY_INTERFACE_ID),
+            "Does not support Strategy interface"
+        );
         address oldStrategy = address(strategy);
         if (oldStrategy != address(0)) {
             uint256 amount = strategy.getBalance();
@@ -161,6 +177,10 @@ contract FlexLender is IFlexLender, AccessControl {
         address newCurve
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newCurve != address(0), "Invalid Curve Address");
+        require(
+            newCurve.supportsInterface(_CURVE_INTERFACE_ID),
+            "Does not support Curve interface"
+        );
         address oldCurve = address(_aprBondingCurve);
         _aprBondingCurve = IBondingCurve(newCurve);
         emit AprBondingCurveSwitched(oldCurve, newCurve);
@@ -173,6 +193,10 @@ contract FlexLender is IFlexLender, AccessControl {
         address newCurve
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newCurve != address(0), "Invalid Curve Address");
+        require(
+            newCurve.supportsInterface(_CURVE_INTERFACE_ID),
+            "Does not support Curve interface"
+        );
         address oldCurve = address(_rateBondingCurve);
         _rateBondingCurve = IBondingCurve(newCurve);
         emit RateBondingCurveSwitched(oldCurve, newCurve);

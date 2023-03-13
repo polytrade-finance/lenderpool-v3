@@ -121,6 +121,12 @@ describe("Verification", function () {
     );
   });
 
+  it("Should fail to set apr address without curve interface support", async function () {
+    await expect(
+      flexLenderContract.switchVerification(stableToken.address)
+    ).to.be.revertedWith("Does not support Verification interface");
+  });
+
   it("Should change verification contract for Fix and Flex lender", async () => {
     await flexLenderContract.switchVerification(verification.address);
     await lenderContract.switchVerification(verification.address);

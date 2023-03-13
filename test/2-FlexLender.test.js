@@ -246,6 +246,18 @@ describe("Flexible Lender Pool", function () {
       ).to.be.revertedWith("Invalid Curve Address");
     });
 
+    it("Should fail to set apr address without curve interface support", async function () {
+      await expect(
+        lenderContract.switchAprBondingCurve(stableToken.address)
+      ).to.be.revertedWith("Does not support Curve interface");
+    });
+
+    it("Should fail to set rate address without curve interface support", async function () {
+      await expect(
+        lenderContract.switchRateBondingCurve(stableToken.address)
+      ).to.be.revertedWith("Does not support Curve interface");
+    });
+
     it("Should set Apr bonding Curve", async function () {
       await expect(lenderContract.switchAprBondingCurve(aprCurve.address))
         .to.emit(lenderContract, "AprBondingCurveSwitched")

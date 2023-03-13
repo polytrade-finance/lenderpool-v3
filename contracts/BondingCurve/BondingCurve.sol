@@ -2,12 +2,13 @@
 pragma solidity ^0.8.17;
 
 import "contracts/BondingCurve/Interface/IBondingCurve.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
 
 /**
  * @title BondingCurve
  * @author Polytrade
  */
-contract BondingCurve is IBondingCurve {
+contract BondingCurve is IBondingCurve, ERC165 {
     uint256 private immutable _p1;
     uint256 private immutable _p2;
     uint256 private immutable _p3;
@@ -37,5 +38,16 @@ contract BondingCurve is IBondingCurve {
             lockingDuration +
             _p3;
         return result / _multiple;
+    }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override(ERC165) returns (bool) {
+        return
+            interfaceId == type(IBondingCurve).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 }

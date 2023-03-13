@@ -6,11 +6,17 @@ const { PRIVATE_KEY, ARCHIVAL_RPC } = process.env;
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
-  solidity: "0.8.17",
-  settings: { optimizer: { enabled: true, runs: 200 } },
+  solidity: {
+    version: "0.8.17",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+    },
+  },
   networks: {
     hardhat: {
-      allowUnlimitedContractSize: true,
       forking: {
         url: `${ARCHIVAL_RPC}`,
         blockNumber: 32228672,
