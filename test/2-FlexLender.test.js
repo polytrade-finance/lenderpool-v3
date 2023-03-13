@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
 const {
   BonusDecimal,
   ZeroAddress,
@@ -21,8 +22,10 @@ const {
   LockingMaxLimit,
   LockingMinLimit,
   DAY,
+  YEAR,
+  SamplePeriod,
 } = require("./constants/constants.helpers");
-const { toStable, toRate, toApr } = require("./helpers");
+const { toStable, toRate, toApr, fromBonus, toBonus } = require("./helpers");
 
 describe("Flexible Lender Pool", function () {
   let accounts;
@@ -133,20 +136,11 @@ describe("Flexible Lender Pool", function () {
   });
 
   describe("Initialize", function () {
-    it("Should fail to set base Apr without admin access", async function () {
+    it("Should fail to set base Apr and rate without admin access", async function () {
       await expect(
-        lenderContract.connect(accounts[1]).changeBaseApr(SampleAPR)
-      ).to.be.revertedWith(
-        `AccessControl: account ${addresses[1].toLowerCase()} is missing role ${ethers.utils.hexZeroPad(
-          ethers.utils.hexlify(0),
-          32
-        )}`
-      );
-    });
-
-    it("Should fail to set base Rate without admin access", async function () {
-      await expect(
-        lenderContract.connect(accounts[1]).changeBaseRate(SampleRate)
+        lenderContract
+          .connect(accounts[1])
+          .changeBaseRates(SampleAPR, SampleRate)
       ).to.be.revertedWith(
         `AccessControl: account ${addresses[1].toLowerCase()} is missing role ${ethers.utils.hexZeroPad(
           ethers.utils.hexlify(0),
@@ -157,40 +151,46 @@ describe("Flexible Lender Pool", function () {
 
     it("Should fail to if Stable Apr is more than 100%", async function () {
       // 10001 = 100.01 %
-      await expect(lenderContract.changeBaseApr(10001)).to.be.revertedWith(
-        "Invalid Stable Apr"
-      );
+      await expect(
+        lenderContract.changeBaseRates(10001, SampleRate)
+      ).to.be.revertedWith("Invalid Stable Apr");
     });
 
     it("Should fail to if Bonus Rate is more than 100 per stable token", async function () {
       // 10001 = 100.01 rate
-      await expect(lenderContract.changeBaseRate(10001)).to.be.revertedWith(
-        "Invalid Bonus Rate"
-      );
+      await expect(
+        lenderContract.changeBaseRates(SampleAPR, 10001)
+      ).to.be.revertedWith("Invalid Bonus Rate");
     });
 
-    it("Should set base Apr", async function () {
-      await expect(lenderContract.changeBaseApr(SampleAPR))
-        .to.emit(lenderContract, "BaseAprChanged")
-        .withArgs(0, await toApr(SampleAPR));
-    });
-
-    it("Should set base Rate", async function () {
-      await expect(lenderContract.changeBaseRate(SampleRate))
+    it("Should set base Apr and Rate", async function () {
+      await expect(lenderContract.changeBaseRates(SampleAPR, SampleRate))
         .to.emit(lenderContract, "BaseRateChanged")
-        .withArgs(0, await toRate(SampleRate, BonusDecimal, StableDecimal));
+        .withArgs(
+          0,
+          await toApr(SampleAPR),
+          0,
+          await toRate(SampleRate, BonusDecimal, StableDecimal)
+        );
     });
 
     it("Should change base Apr", async function () {
-      await expect(lenderContract.changeBaseApr(SampleAPR2))
-        .to.emit(lenderContract, "BaseAprChanged")
-        .withArgs(await toApr(SampleAPR), await toApr(SampleAPR2));
+      await expect(lenderContract.changeBaseRates(SampleAPR2, SampleRate))
+        .to.emit(lenderContract, "BaseRateChanged")
+        .withArgs(
+          await toApr(SampleAPR),
+          await toApr(SampleAPR2),
+          await toRate(SampleRate, BonusDecimal, StableDecimal),
+          await toRate(SampleRate, BonusDecimal, StableDecimal)
+        );
     });
 
     it("Should change base Rate", async function () {
-      await expect(lenderContract.changeBaseRate(SampleRate2))
+      await expect(lenderContract.changeBaseRates(SampleAPR2, SampleRate2))
         .to.emit(lenderContract, "BaseRateChanged")
         .withArgs(
+          await toApr(SampleAPR2),
+          await toApr(SampleAPR2),
           await toRate(SampleRate, BonusDecimal, StableDecimal),
           await toRate(SampleRate2, BonusDecimal, StableDecimal)
         );
@@ -336,8 +336,7 @@ describe("Flexible Lender Pool", function () {
       await stableToken
         .connect(accounts[1])
         .approve(lenderContract.address, amount);
-      await lenderContract.changeBaseApr(SampleAPR);
-      await lenderContract.changeBaseRate(SampleRate);
+      await lenderContract.changeBaseRates(SampleAPR, SampleRate);
       await expect(
         lenderContract.connect(accounts[1])["deposit(uint256)"](amount)
       )
@@ -438,8 +437,7 @@ describe("Flexible Lender Pool", function () {
       await stableToken
         .connect(accounts[1])
         .approve(lenderContract.address, amount);
-      await lenderContract.changeBaseApr(SampleAPR);
-      await lenderContract.changeBaseRate(SampleRate);
+      await lenderContract.changeBaseRates(SampleAPR, SampleRate);
       const apr = await aprCurve.getRate(LockingMinLimit);
       const rate = await rateCurve.getRate(LockingMinLimit);
       await expect(
@@ -448,7 +446,7 @@ describe("Flexible Lender Pool", function () {
           ["deposit(uint256,uint256)"](amount, LockingMinLimit)
       )
         .to.emit(lenderContract, "Deposited")
-        .withArgs(addresses[1], 1, amount, LockingMinLimit * DAY, apr, rate);
+        .withArgs(addresses[1], 0, amount, LockingMinLimit * DAY, apr, rate);
     });
 
     it("Should fail if deposit amount is less than Min. deposit", async function () {
@@ -511,6 +509,426 @@ describe("Flexible Lender Pool", function () {
             LockingMaxLimit
           )
       ).to.be.revertedWith("Pool has reached its limit");
+    });
+  });
+
+  describe("Claim Deposit without locking period", function () {
+    beforeEach(async function () {
+      lenderContract = await LenderFactory.deploy(
+        addresses[0],
+        USDCAddress,
+        bonusAddress,
+        MinDeposit,
+        PoolMaxLimit
+      );
+      await lenderContract.deployed();
+    });
+
+    it("Should fail if there is no deposit before initialization", async function () {
+      await expect(
+        lenderContract.connect(accounts[1])["claimBonus()"]()
+      ).to.be.revertedWith("You have not deposited anything");
+    });
+
+    it("Should fail if there is no deposit after initialization", async function () {
+      await lenderContract.changeBaseRates(SampleAPR, SampleRate);
+      await expect(
+        lenderContract.connect(accounts[1])["claimBonus()"]()
+      ).to.be.revertedWith("You have not deposited anything");
+    });
+
+    it("Should deposit 1000 stable before initialization and claim a 500 bonus after half of the year passed", async function () {
+      const bonusAmount = await toBonus("1000");
+      const stableAmount = await toStable("1000");
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, stableAmount);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256)"](stableAmount);
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
+      // increase 10 days after deposit
+      await time.increase(10 * DAY);
+      // initializing
+      await lenderContract.changeBaseRates(SampleAPR, SampleRate);
+      // half of the year passed
+      const passedPeriod = YEAR / 2;
+      await time.increase(passedPeriod);
+      // SampleRate is 100 which is 1.00
+      const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / YEAR;
+      const beforeClaim = await bonusToken.balanceOf(addresses[1]);
+      await lenderContract.connect(accounts[1])["claimBonus()"]();
+      const afterClaim = await bonusToken.balanceOf(addresses[1]);
+      const bonusBalance = afterClaim.sub(beforeClaim);
+      const actualBonus = parseFloat(await fromBonus(bonusBalance));
+      expect(actualBonus).to.be.within(expectedBonus, expectedBonus + 0.0001);
+    });
+
+    it("Should deposit 1000 stable after initialization and claim a 500 bonus after half of the year (Sample Apr 1) and 1000 bonus after another half of the year passed (Sample Apr 2)", async function () {
+      // initializing
+      await lenderContract.changeBaseRates(SampleAPR, SampleRate);
+      // increase 10 days after initialization
+      await time.increase(10 * DAY);
+      const bonusAmount = await toBonus("2000");
+      const stableAmount = await toStable("1000");
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, stableAmount);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256)"](stableAmount);
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
+      // half of the year passed
+      const passedPeriod = YEAR / 2;
+      await time.increase(passedPeriod);
+      // SampleRate is 100 which is 1.00
+      const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / YEAR;
+      const beforeClaim = await bonusToken.balanceOf(addresses[1]);
+      await lenderContract.connect(accounts[1])["claimBonus()"]();
+      const afterClaim = await bonusToken.balanceOf(addresses[1]);
+      const bonusBalance = afterClaim.sub(beforeClaim);
+      const actualBonus = parseFloat(await fromBonus(bonusBalance));
+      expect(actualBonus).to.be.within(expectedBonus, expectedBonus + 0.0001);
+      // Changing Apr and Rate
+      await lenderContract.changeBaseRates(SampleAPR2, SampleRate2);
+      // half of the year passed
+      await time.increase(passedPeriod);
+      // SampleRate is 200 which is 2.00
+      const expectedBonus2 = (1000 * passedPeriod * (SampleRate2 / 100)) / YEAR;
+      const beforeClaim2 = await bonusToken.balanceOf(addresses[1]);
+      await lenderContract.connect(accounts[1])["claimBonus()"]();
+      const afterClaim2 = await bonusToken.balanceOf(addresses[1]);
+      const bonusBalance2 = afterClaim2.sub(beforeClaim2);
+      const actualBonus2 = parseFloat(await fromBonus(bonusBalance2));
+      expect(actualBonus2).to.be.within(expectedBonus2, expectedBonus2 + 0.001);
+    });
+
+    it("Should deposit 100 stable with 5 different accounts after initialization and claim a 50 bonus after half of the year (Sample Apr 1) and 100 bonus after another half of the year passed (Sample Apr 2)", async function () {
+      // initializing
+      await lenderContract.changeBaseRates(SampleAPR, SampleRate);
+      // increase 10 days after initialization
+      await time.increase(10 * DAY);
+      const bonusAmount = await toBonus("1000");
+      const stableAmount = await toStable("100");
+      for (let i = 1; i < 6; i++) {
+        await stableToken.transfer(addresses[i], stableAmount);
+        await stableToken
+          .connect(accounts[i])
+          .approve(lenderContract.address, stableAmount);
+        await lenderContract
+          .connect(accounts[i])
+          ["deposit(uint256)"](stableAmount);
+      }
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
+      // half of the year passed
+      const passedPeriod = YEAR / 2;
+      await time.increase(passedPeriod);
+      // SampleRate is 100 which is 1.00
+      const expectedBonus = (100 * passedPeriod * (SampleRate / 100)) / YEAR;
+      for (let i = 1; i < 6; i++) {
+        const beforeClaim = await bonusToken.balanceOf(addresses[i]);
+        await lenderContract.connect(accounts[i])["claimBonus()"]();
+        const afterClaim = await bonusToken.balanceOf(addresses[i]);
+        const bonusBalance = afterClaim.sub(beforeClaim);
+        const actualBonus = parseFloat(await fromBonus(bonusBalance));
+        expect(actualBonus).to.be.within(expectedBonus, expectedBonus + 0.0001);
+      }
+
+      // Changing Apr and Rate
+      await lenderContract.changeBaseRates(SampleAPR2, SampleRate2);
+      // half of the year passed
+      await time.increase(passedPeriod);
+      // SampleRate is 200 which is 2.00
+      const expectedBonus2 = (100 * passedPeriod * (SampleRate2 / 100)) / YEAR;
+      for (let i = 1; i < 6; i++) {
+        const beforeClaim2 = await bonusToken.balanceOf(addresses[i]);
+        await lenderContract.connect(accounts[i])["claimBonus()"]();
+        const afterClaim2 = await bonusToken.balanceOf(addresses[i]);
+        const bonusBalance2 = afterClaim2.sub(beforeClaim2);
+        const actualBonus2 = parseFloat(await fromBonus(bonusBalance2));
+        expect(actualBonus2).to.be.within(
+          expectedBonus2,
+          expectedBonus2 + 0.0001
+        );
+      }
+    });
+  });
+
+  describe("Claim Deposit with locking period", function () {
+    beforeEach(async function () {
+      lenderContract = await LenderFactory.deploy(
+        addresses[0],
+        USDCAddress,
+        bonusAddress,
+        MinDeposit,
+        PoolMaxLimit
+      );
+      await lenderContract.deployed();
+      await lenderContract.changeDurationLimit(
+        LockingMinLimit,
+        LockingMaxLimit
+      );
+      await lenderContract.switchAprBondingCurve(aprCurve.address);
+      await lenderContract.switchRateBondingCurve(rateCurve.address);
+    });
+
+    it("Should fail if there is no deposit before initialization", async function () {
+      lenderContract = await LenderFactory.deploy(
+        addresses[0],
+        USDCAddress,
+        bonusAddress,
+        MinDeposit,
+        PoolMaxLimit
+      );
+      await expect(
+        lenderContract.connect(accounts[1])["claimBonus(uint256)"](0)
+      ).to.be.revertedWith("You have nothing with this ID");
+    });
+
+    it("Should fail if there is no deposit after initialization", async function () {
+      await expect(
+        lenderContract.connect(accounts[1])["claimBonus(uint256)"](0)
+      ).to.be.revertedWith("You have nothing with this ID");
+    });
+
+    it("Should deposit 1000 stable for 90 days (0.25 rate) and claim a 125 bonus after 45 days passed", async function () {
+      const bonusAmount = await toBonus("1000");
+      const stableAmount = await toStable("1000");
+      await stableToken.transfer(addresses[1], stableAmount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, stableAmount);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256,uint256)"](stableAmount, SamplePeriod);
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
+      // half of the period passed
+      const passedPeriod = (SamplePeriod * DAY) / 2;
+      await time.increase(passedPeriod);
+      const rate = await rateCurve.getRate(SamplePeriod);
+      const expectedBonus =
+        (1000 * passedPeriod * (rate / 100)) / (SamplePeriod * DAY);
+      const beforeClaim = await bonusToken.balanceOf(addresses[1]);
+      await lenderContract.connect(accounts[1])["claimBonus(uint256)"](0);
+      const afterClaim = await bonusToken.balanceOf(addresses[1]);
+      const bonusBalance = afterClaim.sub(beforeClaim);
+      const actualBonus = parseFloat(await fromBonus(bonusBalance));
+      expect(actualBonus).to.be.within(expectedBonus, expectedBonus + 0.0001);
+    });
+
+    it("Should deposit 100 stable for 3 times with 90, 180, 365 locking days and claim a 111 bonus after 180 days and rest after 365 days", async function () {
+      const bonusAmount = await toBonus("300");
+      const totalStableAmount = await toStable("300");
+      const stableAmount = await toStable("100");
+      await stableToken.transfer(addresses[1], totalStableAmount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, totalStableAmount);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256,uint256)"](stableAmount, SamplePeriod);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256,uint256)"](stableAmount, 180);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256,uint256)"](stableAmount, 365);
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
+      // 180 days passed
+      const passedPeriod = 180 * DAY;
+      await time.increase(passedPeriod);
+      const rate1 = await rateCurve.getRate(SamplePeriod);
+      const rate2 = await rateCurve.getRate(180);
+      const rate3 = await rateCurve.getRate(365);
+      const expectedBonus1 =
+        (100 * SamplePeriod * DAY * (rate1 / 100)) / (SamplePeriod * DAY);
+      const expectedBonus2 =
+        (100 * passedPeriod * (rate2 / 100)) / passedPeriod;
+      const expectedBonus3 = (100 * passedPeriod * (rate3 / 100)) / (365 * DAY);
+      const firstExpected = expectedBonus1 + expectedBonus2 + expectedBonus3;
+      const beforeClaim = await bonusToken.balanceOf(addresses[1]);
+      for (let i = 0; i < 3; i++) {
+        await lenderContract.connect(accounts[1])["claimBonus(uint256)"](i);
+      }
+      const afterClaim = await bonusToken.balanceOf(addresses[1]);
+      const bonusBalance = afterClaim.sub(beforeClaim);
+      const actualBonus = parseFloat(await fromBonus(bonusBalance));
+      expect(actualBonus).to.be.within(firstExpected, firstExpected + 0.0001);
+      // rest 185 days passed (190 days to make sure it calculates till 185 days)
+      const passedPeriod2 = 190 * DAY;
+      await time.increase(passedPeriod2);
+      const secondExpected = (100 * 185 * DAY * (rate3 / 100)) / (365 * DAY);
+      const beforeClaim2 = await bonusToken.balanceOf(addresses[1]);
+      for (let i = 0; i < 3; i++) {
+        await lenderContract.connect(accounts[1])["claimBonus(uint256)"](i);
+      }
+      const afterClaim2 = await bonusToken.balanceOf(addresses[1]);
+      const bonusBalance2 = afterClaim2.sub(beforeClaim2);
+      const actualBonus2 = parseFloat(await fromBonus(bonusBalance2));
+      expect(actualBonus2).to.be.within(
+        secondExpected - 0.0001,
+        secondExpected
+      );
+    });
+
+    it("Should deposit 100 stable with 5 different accounts with 180 days locking days and claim 38 bonus after 180 days", async function () {
+      const bonusAmount = await toBonus("200");
+      const stableAmount = await toStable("100");
+      for (let i = 1; i < 3; i++) {
+        await stableToken.transfer(addresses[i], stableAmount);
+        await stableToken
+          .connect(accounts[i])
+          .approve(lenderContract.address, stableAmount);
+        await lenderContract
+          .connect(accounts[i])
+          ["deposit(uint256,uint256)"](stableAmount, 180);
+      }
+      await time.increase(90 * DAY);
+      for (let i = 3; i < 6; i++) {
+        await stableToken.transfer(addresses[i], stableAmount);
+        await stableToken
+          .connect(accounts[i])
+          .approve(lenderContract.address, stableAmount);
+        await lenderContract
+          .connect(accounts[i])
+          ["deposit(uint256,uint256)"](stableAmount, 180);
+      }
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
+      // 180 days passed
+      const passedPeriod = 90 * DAY;
+      await time.increase(passedPeriod);
+      const rate = await rateCurve.getRate(180);
+      const expectedBonus = (100 * passedPeriod * (rate / 100)) / passedPeriod;
+      for (let i = 1; i < 3; i++) {
+        const beforeClaim = await bonusToken.balanceOf(addresses[i]);
+        await lenderContract.connect(accounts[i])["claimBonus(uint256)"](0);
+        const afterClaim = await bonusToken.balanceOf(addresses[i]);
+        const bonusBalance = afterClaim.sub(beforeClaim);
+        const actualBonus = parseFloat(await fromBonus(bonusBalance));
+        expect(actualBonus).to.be.equal(expectedBonus);
+      }
+      await time.increase(passedPeriod);
+      for (let i = 3; i < 6; i++) {
+        const beforeClaim = await bonusToken.balanceOf(addresses[i]);
+        await lenderContract.connect(accounts[i])["claimBonus(uint256)"](0);
+        const afterClaim = await bonusToken.balanceOf(addresses[i]);
+        const bonusBalance = afterClaim.sub(beforeClaim);
+        const actualBonus = parseFloat(await fromBonus(bonusBalance));
+        expect(actualBonus).to.be.equal(expectedBonus);
+      }
+    });
+  });
+  describe("Claim All Deposits together", function () {
+    beforeEach(async function () {
+      lenderContract = await LenderFactory.deploy(
+        addresses[0],
+        USDCAddress,
+        bonusAddress,
+        MinDeposit,
+        PoolMaxLimit
+      );
+      await lenderContract.deployed();
+      await lenderContract.changeBaseRates(SampleAPR, SampleRate);
+      await lenderContract.changeDurationLimit(
+        LockingMinLimit,
+        LockingMaxLimit
+      );
+      await lenderContract.switchAprBondingCurve(aprCurve.address);
+      await lenderContract.switchRateBondingCurve(rateCurve.address);
+    });
+
+    it("Should fail if there is no deposit", async function () {
+      await expect(
+        lenderContract.connect(accounts[1]).claimAllBonuses()
+      ).to.be.revertedWith("You have not deposited anything");
+    });
+
+    it("Should deposit 100 stable for 90 days (0.25 rate) and 100 stable without locking and claim all bonus after 45 days passed", async function () {
+      const bonusAmount = await toBonus("200");
+      const totalStableAmount = await toStable("200");
+      const stableAmount = await toStable("100");
+      await stableToken.transfer(addresses[1], totalStableAmount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, totalStableAmount);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256,uint256)"](stableAmount, SamplePeriod);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256)"](stableAmount);
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
+      // half of the period passed
+      const passedPeriod = (SamplePeriod * DAY) / 2;
+      await time.increase(passedPeriod);
+      const rate = await rateCurve.getRate(SamplePeriod);
+      const expectedBonus1 =
+        (100 * passedPeriod * (rate / 100)) / (SamplePeriod * DAY);
+      const expectedBonus2 = (100 * passedPeriod * (SampleRate / 100)) / YEAR;
+      const expectedBonus = expectedBonus1 + expectedBonus2;
+      const beforeClaim = await bonusToken.balanceOf(addresses[1]);
+      await lenderContract.connect(accounts[1]).claimAllBonuses();
+      const afterClaim = await bonusToken.balanceOf(addresses[1]);
+      const bonusBalance = afterClaim.sub(beforeClaim);
+      const actualBonus = parseFloat(await fromBonus(bonusBalance));
+      expect(actualBonus).to.be.within(expectedBonus, expectedBonus + 0.0001);
+    });
+
+    it("Should deposit 100 stable for 4 times with 0, 90, 180, 365 locking days and claim all bonus after 180 days and rest after 365 days", async function () {
+      const bonusAmount = await toBonus("400");
+      const totalStableAmount = await toStable("400");
+      const stableAmount = await toStable("100");
+      await stableToken.transfer(addresses[1], totalStableAmount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, totalStableAmount);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256)"](stableAmount);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256,uint256)"](stableAmount, SamplePeriod);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256,uint256)"](stableAmount, 180);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256,uint256)"](stableAmount, 365);
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
+      // 180 days passed
+      const passedPeriod = 180 * DAY;
+      await time.increase(passedPeriod);
+      const rate1 = await rateCurve.getRate(SamplePeriod);
+      const rate2 = await rateCurve.getRate(180);
+      const rate3 = await rateCurve.getRate(365);
+      const expectedBonus0 = (100 * passedPeriod * (SampleRate / 100)) / YEAR;
+      const expectedBonus1 =
+        (100 * SamplePeriod * DAY * (rate1 / 100)) / (SamplePeriod * DAY);
+      const expectedBonus2 =
+        (100 * passedPeriod * (rate2 / 100)) / passedPeriod;
+      const expectedBonus3 = (100 * passedPeriod * (rate3 / 100)) / (365 * DAY);
+      const firstExpected =
+        expectedBonus0 + expectedBonus1 + expectedBonus2 + expectedBonus3;
+      const beforeClaim = await bonusToken.balanceOf(addresses[1]);
+      await lenderContract.connect(accounts[1]).claimAllBonuses();
+      const afterClaim = await bonusToken.balanceOf(addresses[1]);
+      const bonusBalance = afterClaim.sub(beforeClaim);
+      const actualBonus = parseFloat(await fromBonus(bonusBalance));
+      expect(actualBonus).to.be.within(firstExpected, firstExpected + 0.001);
+      const passedPeriod2 = 185 * DAY;
+      await time.increase(passedPeriod2);
+      const expectedBonus4 = (100 * passedPeriod2 * (SampleRate / 100)) / YEAR;
+      const expectedBonus5 = (100 * 185 * DAY * (rate3 / 100)) / (365 * DAY);
+      const secondExpected = expectedBonus4 + expectedBonus5;
+      const beforeClaim2 = await bonusToken.balanceOf(addresses[1]);
+      await lenderContract.connect(accounts[1]).claimAllBonuses();
+      const afterClaim2 = await bonusToken.balanceOf(addresses[1]);
+      const bonusBalance2 = afterClaim2.sub(beforeClaim2);
+      const actualBonus2 = parseFloat(await fromBonus(bonusBalance2));
+      expect(actualBonus2).to.be.within(
+        secondExpected - 0.00001,
+        secondExpected
+      );
     });
   });
 });
