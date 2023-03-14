@@ -759,8 +759,7 @@ describe("Flexible Lender Pool", function () {
       const passedPeriod = (SamplePeriod * DAY) / 2;
       await time.increase(passedPeriod);
       const rate = await rateCurve.getRate(SamplePeriod);
-      const expectedBonus =
-        (1000 * passedPeriod * (rate / 100)) / (SamplePeriod * DAY);
+      const expectedBonus = (1000 * passedPeriod * (rate / 100)) / YEAR;
       const beforeClaim = await bonusToken.balanceOf(addresses[1]);
       await lenderContract.connect(accounts[1])["claimBonus(uint256)"](0);
       const afterClaim = await bonusToken.balanceOf(addresses[1]);
@@ -793,11 +792,9 @@ describe("Flexible Lender Pool", function () {
       const rate1 = await rateCurve.getRate(SamplePeriod);
       const rate2 = await rateCurve.getRate(180);
       const rate3 = await rateCurve.getRate(365);
-      const expectedBonus1 =
-        (100 * SamplePeriod * DAY * (rate1 / 100)) / (SamplePeriod * DAY);
-      const expectedBonus2 =
-        (100 * passedPeriod * (rate2 / 100)) / passedPeriod;
-      const expectedBonus3 = (100 * passedPeriod * (rate3 / 100)) / (365 * DAY);
+      const expectedBonus1 = (100 * SamplePeriod * DAY * (rate1 / 100)) / YEAR;
+      const expectedBonus2 = (100 * passedPeriod * (rate2 / 100)) / YEAR;
+      const expectedBonus3 = (100 * passedPeriod * (rate3 / 100)) / YEAR;
       const firstExpected = expectedBonus1 + expectedBonus2 + expectedBonus3;
       const beforeClaim = await bonusToken.balanceOf(addresses[1]);
       for (let i = 0; i < 3; i++) {
@@ -810,7 +807,7 @@ describe("Flexible Lender Pool", function () {
       // rest 185 days passed (190 days to make sure it calculates till 185 days)
       const passedPeriod2 = 190 * DAY;
       await time.increase(passedPeriod2);
-      const secondExpected = (100 * 185 * DAY * (rate3 / 100)) / (365 * DAY);
+      const secondExpected = (100 * 185 * DAY * (rate3 / 100)) / YEAR;
       const beforeClaim2 = await bonusToken.balanceOf(addresses[1]);
       for (let i = 0; i < 3; i++) {
         await lenderContract.connect(accounts[1])["claimBonus(uint256)"](i);
@@ -824,7 +821,7 @@ describe("Flexible Lender Pool", function () {
       );
     });
 
-    it("Should deposit 100 stable with 5 different accounts with 180 days locking days and claim 38 bonus after 180 days", async function () {
+    it("Should deposit 100 stable with 5 different accounts with 180 days locking days and claim 18 bonus after 180 days", async function () {
       const bonusAmount = await toBonus("200");
       const stableAmount = await toStable("100");
       for (let i = 1; i < 3; i++) {
@@ -851,7 +848,7 @@ describe("Flexible Lender Pool", function () {
       const passedPeriod = 90 * DAY;
       await time.increase(passedPeriod);
       const rate = await rateCurve.getRate(180);
-      const expectedBonus = (100 * passedPeriod * (rate / 100)) / passedPeriod;
+      const expectedBonus = (100 * (180 * DAY) * (rate / 100)) / YEAR;
       for (let i = 1; i < 3; i++) {
         const beforeClaim = await bonusToken.balanceOf(addresses[i]);
         await lenderContract.connect(accounts[i])["claimBonus(uint256)"](0);
@@ -917,8 +914,7 @@ describe("Flexible Lender Pool", function () {
       const passedPeriod = (SamplePeriod * DAY) / 2;
       await time.increase(passedPeriod);
       const rate = await rateCurve.getRate(SamplePeriod);
-      const expectedBonus1 =
-        (100 * passedPeriod * (rate / 100)) / (SamplePeriod * DAY);
+      const expectedBonus1 = (100 * passedPeriod * (rate / 100)) / YEAR;
       const expectedBonus2 = (100 * passedPeriod * (SampleRate / 100)) / YEAR;
       const expectedBonus = expectedBonus1 + expectedBonus2;
       const beforeClaim = await bonusToken.balanceOf(addresses[1]);
@@ -957,11 +953,9 @@ describe("Flexible Lender Pool", function () {
       const rate2 = await rateCurve.getRate(180);
       const rate3 = await rateCurve.getRate(365);
       const expectedBonus0 = (100 * passedPeriod * (SampleRate / 100)) / YEAR;
-      const expectedBonus1 =
-        (100 * SamplePeriod * DAY * (rate1 / 100)) / (SamplePeriod * DAY);
-      const expectedBonus2 =
-        (100 * passedPeriod * (rate2 / 100)) / passedPeriod;
-      const expectedBonus3 = (100 * passedPeriod * (rate3 / 100)) / (365 * DAY);
+      const expectedBonus1 = (100 * SamplePeriod * DAY * (rate1 / 100)) / YEAR;
+      const expectedBonus2 = (100 * passedPeriod * (rate2 / 100)) / YEAR;
+      const expectedBonus3 = (100 * passedPeriod * (rate3 / 100)) / YEAR;
       const firstExpected =
         expectedBonus0 + expectedBonus1 + expectedBonus2 + expectedBonus3;
       const beforeClaim = await bonusToken.balanceOf(addresses[1]);
@@ -973,7 +967,7 @@ describe("Flexible Lender Pool", function () {
       const passedPeriod2 = 185 * DAY;
       await time.increase(passedPeriod2);
       const expectedBonus4 = (100 * passedPeriod2 * (SampleRate / 100)) / YEAR;
-      const expectedBonus5 = (100 * 185 * DAY * (rate3 / 100)) / (365 * DAY);
+      const expectedBonus5 = (100 * 185 * DAY * (rate3 / 100)) / YEAR;
       const secondExpected = expectedBonus4 + expectedBonus5;
       const beforeClaim2 = await bonusToken.balanceOf(addresses[1]);
       await lenderContract.connect(accounts[1]).claimAllBonuses();
@@ -1055,7 +1049,7 @@ describe("Flexible Lender Pool", function () {
       const apr = await aprCurve.getRate(SamplePeriod);
       const rate = await rateCurve.getRate(SamplePeriod);
       await time.increase(Period);
-      const expectedBonus = (300 * Period * (rate / 100)) / Period;
+      const expectedBonus = (300 * Period * (rate / 100)) / YEAR;
       const unroundExpectedStable = (300 * Period * (apr / 10000)) / YEAR + 300;
       // need to round expected stable with 6 decimal since stable has 6 decimal
       const expectedStable =
@@ -1106,7 +1100,7 @@ describe("Flexible Lender Pool", function () {
       const Expected1 = (200 * Period * (apr / 10000)) / YEAR;
       const Expected2 = (100 * YEAR * (SampleAPR / 10000)) / YEAR;
       const StableExpect = Expected1 + Expected2 + 300;
-      const BonusExpect1 = (200 * Period * (rate / 100)) / Period;
+      const BonusExpect1 = (200 * Period * (rate / 100)) / YEAR;
       const BonusExpect2 = (100 * YEAR * (SampleRate / 100)) / YEAR;
       // need to round expected stable with 6 decimal since stable has 6 decimal
       const ExpectedStable =
@@ -1162,10 +1156,8 @@ describe("Flexible Lender Pool", function () {
       const rate1 = await rateCurve.getRate(SamplePeriod);
       const rate2 = await rateCurve.getRate(180);
       const rate3 = await rateCurve.getRate(365);
-      const expectedBonus1 =
-        (100 * SamplePeriod * DAY * (rate1 / 100)) / (SamplePeriod * DAY);
-      const expectedBonus2 =
-        (100 * passedPeriod * (rate2 / 100)) / passedPeriod;
+      const expectedBonus1 = (100 * SamplePeriod * DAY * (rate1 / 100)) / YEAR;
+      const expectedBonus2 = (100 * passedPeriod * (rate2 / 100)) / YEAR;
       const beforeClaim = await bonusToken.balanceOf(addresses[1]);
       await lenderContract.connect(accounts[1])["withdraw(uint256)"](1);
       const afterClaim = await bonusToken.balanceOf(addresses[1]);
@@ -1174,7 +1166,7 @@ describe("Flexible Lender Pool", function () {
       expect(actualBonus).to.be.within(expectedBonus2, expectedBonus2 + 0.001);
       const passedPeriod2 = 185 * DAY;
       await time.increase(passedPeriod2);
-      const expectedBonus4 = (100 * (365 * DAY) * (rate3 / 100)) / (365 * DAY);
+      const expectedBonus4 = (100 * (365 * DAY) * (rate3 / 100)) / YEAR;
       const secondExpected = expectedBonus1 + expectedBonus4;
       const beforeClaim2 = await bonusToken.balanceOf(addresses[1]);
       await lenderContract.connect(accounts[1]).claimAllBonuses();

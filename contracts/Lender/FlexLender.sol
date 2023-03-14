@@ -717,14 +717,12 @@ contract FlexLender is IFlexLender, AccessControl {
             calculatedStableReward += _calculateFormula(
                 amount,
                 diff,
-                rateRounds[i].stableApr,
-                _YEAR
+                rateRounds[i].stableApr
             );
             calculatedBonusReward += _calculateFormula(
                 amount,
                 diff,
-                rateRounds[i].bonusRate,
-                _YEAR
+                rateRounds[i].bonusRate
             );
             if (lastUpdate > rateRounds[i].startDate) {
                 break;
@@ -753,14 +751,12 @@ contract FlexLender is IFlexLender, AccessControl {
             _calculateFormula(
                 amount,
                 stableDiff,
-                lenders[_lender].deposits[_id].apr,
-                _YEAR
+                lenders[_lender].deposits[_id].apr
             ) / 1E2,
             _calculateFormula(
                 amount,
                 bonusDiff,
-                lenders[_lender].deposits[_id].rate,
-                lenders[_lender].deposits[_id].lockingDuration
+                lenders[_lender].deposits[_id].rate
             )
         );
     }
@@ -783,17 +779,15 @@ contract FlexLender is IFlexLender, AccessControl {
 
     /**
      * @dev Calculates the bonus and stable rewards for all lenders
-     * @param _amount is the amount of deposited stable tokens
-     * @param _duration is the passed duration from last updated rewards
-     * @param _rate is the rate for bonus reward or apr for stable reward
-     * @param _period is the period that calculates rewards based on that
+     * @param amount is the amount of deposited stable tokens
+     * @param duration is the passed duration from last updated rewards
+     * @param rate is the rate for bonus reward or apr for stable reward
      */
     function _calculateFormula(
-        uint256 _amount,
-        uint256 _duration,
-        uint256 _rate,
-        uint256 _period
+        uint256 amount,
+        uint256 duration,
+        uint256 rate
     ) private pure returns (uint256) {
-        return ((_amount * _duration * _rate) / 1E2) / _period;
+        return ((amount * duration * rate) / 1E2) / _YEAR;
     }
 }
