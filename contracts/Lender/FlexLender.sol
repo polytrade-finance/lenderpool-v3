@@ -243,7 +243,10 @@ contract FlexLender is IFlexLender, AccessControl {
     /**
      * @dev See {IFlexLender-deposit}.
      */
-    function deposit(uint256 amount, uint256 lockingDuration) external isValid {
+    function deposit(
+        uint256 amount,
+        uint256 lockingDuration
+    ) external isValid returns (uint256) {
         require(address(strategy) != address(0), "There is no Strategy");
         require(
             _poolMaxLimit >= _poolSize + amount,
@@ -277,6 +280,7 @@ contract FlexLender is IFlexLender, AccessControl {
         _stableToken.safeTransferFrom(msg.sender, address(this), amount);
         _depositInStrategy(amount);
         emit Deposited(msg.sender, currentId, amount, lockingPeriod, apr, rate);
+        return currentId;
     }
 
     /**
