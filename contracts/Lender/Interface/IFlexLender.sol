@@ -220,12 +220,9 @@ interface IFlexLender {
      * - `amount` must be approved from the stable token contract for the LenderPool
      * - `lockingDuration` should be less than max duration and more than min duration
      * Emits {Deposited} event
-     * return {Deposited} event
+     * return Deposit ID
      */
-    function deposit(
-        uint256 amount,
-        uint256 lockingDuration
-    ) external returns (uint256);
+    function deposit(uint256 amount, uint256 lockingDuration) external returns (uint256);
 
     /**
      * @notice Claims the bonus rewards to the lender for all deposits
