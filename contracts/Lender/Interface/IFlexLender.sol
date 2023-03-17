@@ -222,7 +222,10 @@ interface IFlexLender {
      * Emits {Deposited} event
      * return Deposit ID
      */
-    function deposit(uint256 amount, uint256 lockingDuration) external returns (uint256);
+    function deposit(
+        uint256 amount,
+        uint256 lockingDuration
+    ) external returns (uint256);
 
     /**
      * @notice Claims the bonus rewards to the lender for all deposits
