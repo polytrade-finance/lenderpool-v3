@@ -378,31 +378,15 @@ contract FlexLender is IFlexLender, AccessControl {
     function _updateId(address _lender) private {
         uint256 start = lenders[_lender].startId;
         uint256 end = lenders[_lender].currentId;
-        uint256 amount;
-        for (uint256 i = start; i < end; i++) {
-            amount += lenders[_lender].deposits[i].amount;
-            if (amount == 0) {
-                start = i + 1;
-            } else {
-                amount = 0;
-                break;
-            }
+        while (start < end && lenders[_lender].deposits[start].amount == 0) {
+            start++;
         }
-        for (uint256 i = end; i > start; i--) {
-            amount += lenders[_lender].deposits[i - 1].amount;
-            if (amount == 0) {
-                end = i - 1;
-            } else {
-                break;
-            }
+        while (start < end && lenders[_lender].deposits[end - 1].amount == 0) {
+            end--;
         }
-        if (end == start) {
-            lenders[_lender].startId = 0;
-            lenders[_lender].currentId = 0;
-        } else {
-            lenders[_lender].startId = start;
-            lenders[_lender].currentId = end;
-        }
+        uint256 reset = (end == start) ? 0 : end;
+        lenders[_lender].startId = reset == 0 ? 0 : start;
+        lenders[_lender].currentId = reset;
     }
 
     /**
