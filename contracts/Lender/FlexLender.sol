@@ -49,9 +49,8 @@ contract FlexLender is IFlexLender, AccessControl {
     IStrategy public strategy;
 
     modifier isValid() {
-        if (_verificationStatus) {
+        if (_verificationStatus)
             require(verification.isValid(msg.sender), "You are not verified");
-        }
         _;
     }
 
@@ -297,9 +296,8 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 bonusReward;
         Lender storage lenderData = lenders[msg.sender];
         for (uint256 i = lenderData.startId; i < lenderData.currentId; i++) {
-            if (lenderData.deposits[i].amount != 0) {
+            if (lenderData.deposits[i].amount != 0)
                 bonusReward += _claimBonus(i);
-            }
         }
         bonusReward += _claimBonus();
         _bonusToken.safeTransfer(msg.sender, bonusReward);
@@ -585,9 +583,7 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 j;
         uint256[] memory activeDeposits = new uint256[](actives);
         for (uint256 i = lenderData.startId; i < lenderData.currentId; i++) {
-            if (lenderData.deposits[i].amount != 0) {
-                activeDeposits[j++] = i;
-            }
+            if (lenderData.deposits[i].amount != 0) activeDeposits[j++] = i;
         }
         return activeDeposits;
     }
@@ -671,9 +667,7 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 count;
         Lender storage lenderData = lenders[_lender];
         for (uint256 i = lenderData.startId; i < lenderData.currentId; i++) {
-            if (lenderData.deposits[i].amount != 0) {
-                count++;
-            }
+            if (lenderData.deposits[i].amount != 0) count++;
         }
         return count;
     }
@@ -708,9 +702,7 @@ contract FlexLender is IFlexLender, AccessControl {
                 diff,
                 rateRounds[i].bonusRate
             );
-            if (lastUpdate > rateRounds[i].startDate) {
-                break;
-            }
+            if (lastUpdate > rateRounds[i].startDate) break;
         }
         return (calculatedStableReward, calculatedBonusReward);
     }
