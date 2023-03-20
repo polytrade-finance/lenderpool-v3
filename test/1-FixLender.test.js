@@ -321,10 +321,7 @@ describe("Fixed Lender Pool", function () {
 
     it("Should not increase pool Size if stable tokens transfer directly to contract", async function () {
       const amount = await toStable("100");
-      await stableToken.transfer(
-        lenderContract.address,
-        PoolMaxLimit
-      );
+      await stableToken.transfer(lenderContract.address, PoolMaxLimit);
       await stableToken
         .connect(accounts[1])
         .approve(lenderContract.address, amount);
