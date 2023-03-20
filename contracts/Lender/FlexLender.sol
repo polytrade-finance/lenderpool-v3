@@ -60,8 +60,9 @@ contract FlexLender is IFlexLender, AccessControl {
      * @param admin_ address of admin
      * @param stableToken_  address of stable Token
      * @param bonusToken_ address of bonus Token
-     * @param minDeposit_ minimum deposit amount for users
+     * @param minDeposit_ minimum deposit amount for users with stable decimals
      * @param poolMaxLimit_ maximum tokens to deposit in pool, after reaching contract stops receiving deposit
+     * with stable decimals
      */
     constructor(
         address admin_,
@@ -79,8 +80,8 @@ contract FlexLender is IFlexLender, AccessControl {
         _bonusToken = IToken(bonusToken_);
         _stableDecimal = _stableToken.decimals();
         _bonusDecimal = _bonusToken.decimals();
-        _minDeposit = minDeposit_ * (10 ** _stableDecimal);
-        _poolMaxLimit = poolMaxLimit_ * (10 ** _stableDecimal);
+        _minDeposit = minDeposit_;
+        _poolMaxLimit = poolMaxLimit_;
     }
 
     /**
@@ -91,7 +92,7 @@ contract FlexLender is IFlexLender, AccessControl {
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newLimit != 0, "Max limit can not be zero");
         uint256 oldLimit = _poolMaxLimit;
-        _poolMaxLimit = newLimit * (10 ** _stableDecimal);
+        _poolMaxLimit = newLimit;
         emit PoolLimitChanged(oldLimit, _poolMaxLimit);
     }
 
@@ -222,11 +223,11 @@ contract FlexLender is IFlexLender, AccessControl {
      */
     function deposit(uint256 amount) external isValid {
         require(address(strategy) != address(0), "There is no Strategy");
+        require(amount >= _minDeposit, "Amount is less than Min. Deposit");
         require(
             _poolMaxLimit >= _poolSize + amount,
             "Pool has reached its limit"
         );
-        require(amount >= _minDeposit, "Amount is less than Min. Deposit");
         (uint256 stableReward, uint256 bonusReward) = _calculateBaseRewards(
             msg.sender
         );
@@ -249,11 +250,11 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 lockingDuration
     ) external isValid returns (uint256) {
         require(address(strategy) != address(0), "There is no Strategy");
+        require(amount >= _minDeposit, "Amount is less than Min. Deposit");
         require(
             _poolMaxLimit >= _poolSize + amount,
             "Pool has reached its limit"
         );
-        require(amount >= _minDeposit, "Amount is less than Min. Deposit");
         require(
             lockingDuration >= _minLimit,
             "Locking Duration is < Min. Limit"

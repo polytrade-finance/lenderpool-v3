@@ -324,7 +324,7 @@ interface IFlexLender {
 
     /**
      * @dev Changes the maximum limit of deposit allowed for flexible pool
-     * @param newLimit is the new maximum limit for lender pool
+     * @param newLimit is the new maximum limit for lender pool with stable decimals
      * Emits {PoolLimitChanged} event
      */
     function changePoolLimit(uint256 newLimit) external;

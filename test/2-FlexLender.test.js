@@ -329,10 +329,7 @@ describe("Flexible Lender Pool", function () {
     it("Should change Max Pool limit", async function () {
       await expect(lenderContract.changePoolLimit(PoolMaxLimit + 1000))
         .to.emit(lenderContract, "PoolLimitChanged")
-        .withArgs(
-          PoolMaxLimit * 10 ** StableDecimal,
-          (PoolMaxLimit + 1000) * 10 ** StableDecimal
-        );
+        .withArgs(PoolMaxLimit, PoolMaxLimit + 1000);
     });
   });
 
@@ -385,7 +382,7 @@ describe("Flexible Lender Pool", function () {
     });
 
     it("Should fail if deposit amount is less than Min. deposit", async function () {
-      const deposit = (MinDeposit - 1).toString();
+      const deposit = (99).toString();
       await stableToken
         .connect(accounts[1])
         .approve(lenderContract.address, toStable(deposit));
@@ -398,10 +395,7 @@ describe("Flexible Lender Pool", function () {
 
     it("Should not increase pool Size if stable tokens transfer directly to contract", async function () {
       const poolSizeBeforeTransfer = await lenderContract.getPoolSize();
-      await stableToken.transfer(
-        lenderContract.address,
-        toStable(`${PoolMaxLimit}`)
-      );
+      await stableToken.transfer(lenderContract.address, PoolMaxLimit);
       const poolSizeAfterTransfer = await lenderContract.getPoolSize();
       expect(poolSizeAfterTransfer).to.be.equal(poolSizeBeforeTransfer);
     });
@@ -499,7 +493,7 @@ describe("Flexible Lender Pool", function () {
     });
 
     it("Should fail if deposit amount is less than Min. deposit", async function () {
-      const deposit = (MinDeposit - 1).toString();
+      const deposit = (99).toString();
       await stableToken
         .connect(accounts[1])
         .approve(lenderContract.address, toStable(deposit));
@@ -538,10 +532,7 @@ describe("Flexible Lender Pool", function () {
 
     it("Should not increase pool Size if stable tokens transfer directly to contract", async function () {
       const poolSizeBeforeTransfer = await lenderContract.getPoolSize();
-      await stableToken.transfer(
-        lenderContract.address,
-        toStable(`${PoolMaxLimit}`)
-      );
+      await stableToken.transfer(lenderContract.address, PoolMaxLimit);
       const poolSizeAfterTransfer = await lenderContract.getPoolSize();
       expect(poolSizeAfterTransfer).to.be.equal(poolSizeBeforeTransfer);
     });
@@ -1350,7 +1341,7 @@ describe("Flexible Lender Pool", function () {
     it("Should get max pool size", async function () {
       expect(
         await lenderContract.connect(accounts[1]).getMaxPoolSize()
-      ).to.be.equal(PoolMaxLimit * 10 ** StableDecimal);
+      ).to.be.equal(PoolMaxLimit);
     });
 
     it("Should get verification status of pool", async function () {

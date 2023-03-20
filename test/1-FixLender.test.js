@@ -310,7 +310,7 @@ describe("Fixed Lender Pool", function () {
     });
 
     it("Should fail if deposit amount is less than Min. deposit", async function () {
-      const deposit = (MinDeposit - 1).toString();
+      const deposit = (99).toString();
       await stableToken
         .connect(accounts[1])
         .approve(lenderContract.address, toStable(deposit));
@@ -323,7 +323,7 @@ describe("Fixed Lender Pool", function () {
       const amount = await toStable("100");
       await stableToken.transfer(
         lenderContract.address,
-        toStable(`${PoolMaxLimit}`)
+        PoolMaxLimit
       );
       await stableToken
         .connect(accounts[1])
@@ -866,7 +866,7 @@ describe("Fixed Lender Pool", function () {
     it("Should get max pool size", async function () {
       expect(
         await lenderContract.connect(accounts[1]).getMaxPoolSize()
-      ).to.be.equal(PoolMaxLimit * 10 ** StableDecimal);
+      ).to.be.equal(PoolMaxLimit);
     });
 
     it("Should get Pool Start Date", async function () {
