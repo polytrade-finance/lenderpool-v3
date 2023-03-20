@@ -230,11 +230,12 @@ contract FlexLender is IFlexLender, AccessControl {
         (uint256 stableReward, uint256 bonusReward) = _calculateBaseRewards(
             msg.sender
         );
+        Lender storage lenderData = lenders[msg.sender];
         _poolSize += amount;
-        lenders[msg.sender].amount += amount;
-        lenders[msg.sender].pendingStableReward += stableReward;
-        lenders[msg.sender].pendingBonusReward += bonusReward;
-        lenders[msg.sender].lastUpdateDate = block.timestamp;
+        lenderData.amount += amount;
+        lenderData.pendingStableReward += stableReward;
+        lenderData.pendingBonusReward += bonusReward;
+        lenderData.lastUpdateDate = block.timestamp;
         _stableToken.safeTransferFrom(msg.sender, address(this), amount);
         _depositInStrategy(amount);
         emit BaseDeposited(msg.sender, amount);
@@ -261,14 +262,15 @@ contract FlexLender is IFlexLender, AccessControl {
             lockingDuration <= _maxLimit,
             "Locking Duration is > Max. Limit"
         );
+        Lender storage lenderData = lenders[msg.sender];
         uint256 apr = _aprBondingCurve.getRate(lockingDuration);
         uint256 rate = _rateBondingCurve.getRate(lockingDuration) *
             (10 ** (_bonusDecimal - _stableDecimal));
         uint256 lockingPeriod = lockingDuration * 1 days;
-        uint256 currentId = lenders[msg.sender].currentId;
-        lenders[msg.sender].currentId++;
+        uint256 currentId = lenderData.currentId;
+        lenderData.currentId++;
         _poolSize += amount;
-        lenders[msg.sender].deposits[currentId] = Deposit(
+        lenderData.deposits[currentId] = Deposit(
             amount,
             apr,
             rate,
@@ -292,12 +294,9 @@ contract FlexLender is IFlexLender, AccessControl {
             "You have not deposited anything"
         );
         uint256 bonusReward;
-        for (
-            uint256 i = lenders[msg.sender].startId;
-            i < lenders[msg.sender].currentId;
-            i++
-        ) {
-            if (lenders[msg.sender].deposits[i].amount != 0) {
+        Lender storage lenderData = lenders[msg.sender];
+        for (uint256 i = lenderData.startId; i < lenderData.currentId; i++) {
+            if (lenderData.deposits[i].amount != 0) {
                 bonusReward += _claimBonus(i);
             }
         }
@@ -336,23 +335,20 @@ contract FlexLender is IFlexLender, AccessControl {
      * @dev See {IFlexLender-withdraw}.
      */
     function withdraw() external {
-        require(
-            lenders[msg.sender].amount != 0,
-            "You have not deposited anything"
-        );
+        Lender storage lenderData = lenders[msg.sender];
+        require(lenderData.amount != 0, "You have not deposited anything");
         (
             uint256 baseStableReward,
             uint256 baseBonusReward
         ) = _calculateBaseRewards(msg.sender);
-        uint256 depositedAmount = lenders[msg.sender].amount;
+        uint256 depositedAmount = lenderData.amount;
         uint256 stableAmount = depositedAmount +
-            lenders[msg.sender].pendingStableReward +
+            lenderData.pendingStableReward +
             baseStableReward;
-        uint256 bonusAmount = baseBonusReward +
-            lenders[msg.sender].pendingBonusReward;
-        lenders[msg.sender].amount = 0;
-        lenders[msg.sender].pendingBonusReward = 0;
-        lenders[msg.sender].pendingStableReward = 0;
+        uint256 bonusAmount = baseBonusReward + lenderData.pendingBonusReward;
+        lenderData.amount = 0;
+        lenderData.pendingBonusReward = 0;
+        lenderData.pendingStableReward = 0;
         _poolSize -= depositedAmount;
         strategy.withdraw(depositedAmount);
         _bonusToken.safeTransfer(msg.sender, bonusAmount);
@@ -364,18 +360,16 @@ contract FlexLender is IFlexLender, AccessControl {
      * @dev See {IFlexLender-withdraw}.
      */
     function withdraw(uint256 id) external {
-        require(
-            lenders[msg.sender].deposits[id].amount != 0,
-            "You have nothing with this ID"
-        );
-        uint256 depositEndDate = lenders[msg.sender].deposits[id].endDate;
+        Deposit memory depositData = lenders[msg.sender].deposits[id];
+        require(depositData.amount != 0, "You have nothing with this ID");
+        uint256 depositEndDate = depositData.endDate;
         require(block.timestamp >= depositEndDate, "You can not withdraw yet");
         (uint256 stableReward, uint256 bonusReward) = _calculateRewards(
             msg.sender,
             id,
             depositEndDate
         );
-        uint256 depositedAmount = lenders[msg.sender].deposits[id].amount;
+        uint256 depositedAmount = depositData.amount;
         uint256 stableAmount = depositedAmount + stableReward;
         delete lenders[msg.sender].deposits[id];
         _poolSize -= depositedAmount;
@@ -390,17 +384,18 @@ contract FlexLender is IFlexLender, AccessControl {
      * @dev See {IFlexLender-emergencyWithdraw}.
      */
     function emergencyWithdraw(uint256 id) external {
+        Deposit memory depositData = lenders[msg.sender].deposits[id];
         require(
             lenders[msg.sender].deposits[id].amount != 0,
             "You have nothing with this ID"
         );
-        uint256 depositEndDate = lenders[msg.sender].deposits[id].startDate +
-            lenders[msg.sender].deposits[id].lockingDuration;
+        uint256 depositEndDate = depositData.startDate +
+            depositData.lockingDuration;
         require(
             block.timestamp < depositEndDate,
             "You can not emergency withdraw"
         );
-        uint256 depositedAmount = lenders[msg.sender].deposits[id].amount;
+        uint256 depositedAmount = depositData.amount;
         uint256 withdrawFee = (depositedAmount * _withdrawPenaltyPercent) / 1E4;
         uint256 refundAmount = depositedAmount - withdrawFee;
         delete lenders[msg.sender].deposits[id];
@@ -584,17 +579,13 @@ contract FlexLender is IFlexLender, AccessControl {
     function getActiveDeposits(
         address lender
     ) external view returns (uint256[] memory) {
+        Lender storage lenderData = lenders[lender];
         uint256 actives = _activeCount(lender);
         uint256 j;
         uint256[] memory activeDeposits = new uint256[](actives);
-        for (
-            uint256 i = lenders[lender].startId;
-            i < lenders[lender].currentId;
-            i++
-        ) {
-            if (lenders[lender].deposits[i].amount != 0) {
-                activeDeposits[j] = i;
-                j++;
+        for (uint256 i = lenderData.startId; i < lenderData.currentId; i++) {
+            if (lenderData.deposits[i].amount != 0) {
+                activeDeposits[j++] = i;
             }
         }
         return activeDeposits;
@@ -616,15 +607,16 @@ contract FlexLender is IFlexLender, AccessControl {
      * @dev Updates msg.sender pendingRewards
      */
     function _claimBonus() private returns (uint256) {
+        Lender storage lenderData = lenders[msg.sender];
         (
             uint256 baseStableReward,
             uint256 baseBonusReward
         ) = _calculateBaseRewards(msg.sender);
-        lenders[msg.sender].pendingStableReward += baseStableReward;
+        lenderData.pendingStableReward += baseStableReward;
         uint256 claimableBonus = baseBonusReward +
-            lenders[msg.sender].pendingBonusReward;
-        lenders[msg.sender].pendingBonusReward = 0;
-        lenders[msg.sender].lastUpdateDate = block.timestamp;
+            lenderData.pendingBonusReward;
+        lenderData.pendingBonusReward = 0;
+        lenderData.lastUpdateDate = block.timestamp;
         return claimableBonus;
     }
 
@@ -635,12 +627,13 @@ contract FlexLender is IFlexLender, AccessControl {
      * @param _id, id of the deposit
      */
     function _claimBonus(uint256 _id) private returns (uint256) {
-        uint256 depositEndDate = lenders[msg.sender].deposits[_id].endDate;
+        Lender storage lenderData = lenders[msg.sender];
+        uint256 depositEndDate = lenderData.deposits[_id].endDate;
         uint256 endDate = block.timestamp > depositEndDate
             ? depositEndDate
             : block.timestamp;
         (, uint256 bonusReward) = _calculateRewards(msg.sender, _id, endDate);
-        lenders[msg.sender].deposits[_id].lastClaimDate = endDate;
+        lenderData.deposits[_id].lastClaimDate = endDate;
         return bonusReward;
     }
 
@@ -651,33 +644,21 @@ contract FlexLender is IFlexLender, AccessControl {
      * @param _lender, address of lender
      */
     function _updateId(address _lender) private {
-        uint256 start = lenders[_lender].startId;
-        uint256 end = lenders[_lender].currentId;
-        uint256 amount;
-        for (uint256 i = start; i < end; i++) {
-            amount += lenders[_lender].deposits[i].amount;
-            if (amount == 0) {
-                start = i + 1;
-            } else {
-                amount = 0;
-                break;
-            }
+        Lender storage lenderData = lenders[_lender];
+        uint256 start = lenderData.startId;
+        uint256 end = lenderData.currentId;
+
+        while (start < end && lenderData.deposits[start].amount == 0) {
+            start++;
         }
-        for (uint256 i = end; i > start; i--) {
-            amount += lenders[_lender].deposits[i - 1].amount;
-            if (amount == 0) {
-                end = i - 1;
-            } else {
-                break;
-            }
+
+        while (start < end && lenderData.deposits[end - 1].amount == 0) {
+            end--;
         }
-        if (end == start) {
-            lenders[_lender].startId = 0;
-            lenders[_lender].currentId = 0;
-        } else {
-            lenders[_lender].startId = start;
-            lenders[_lender].currentId = end;
-        }
+
+        uint256 reset = (end == start) ? 0 : end;
+        lenderData.startId = reset == 0 ? 0 : start;
+        lenderData.currentId = reset;
     }
 
     /**
@@ -687,12 +668,9 @@ contract FlexLender is IFlexLender, AccessControl {
      */
     function _activeCount(address _lender) private view returns (uint256) {
         uint256 count;
-        for (
-            uint256 i = lenders[_lender].startId;
-            i < lenders[_lender].currentId;
-            i++
-        ) {
-            if (lenders[_lender].deposits[i].amount != 0) {
+        Lender storage lenderData = lenders[_lender];
+        for (uint256 i = lenderData.startId; i < lenderData.currentId; i++) {
+            if (lenderData.deposits[i].amount != 0) {
                 count++;
             }
         }
@@ -706,8 +684,9 @@ contract FlexLender is IFlexLender, AccessControl {
     function _calculateBaseRewards(
         address _lender
     ) private view returns (uint256, uint256) {
-        uint256 amount = lenders[_lender].amount;
-        uint256 lastUpdate = lenders[_lender].lastUpdateDate;
+        Lender storage lenderData = lenders[_lender];
+        uint256 amount = lenderData.amount;
+        uint256 lastUpdate = lenderData.lastUpdateDate;
         uint256 calculatedStableReward;
         uint256 calculatedBonusReward;
         for (uint256 i = _currentRateRound; i > 0; i--) {
@@ -746,22 +725,13 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 _id,
         uint256 _endDate
     ) private view returns (uint256, uint256) {
-        uint256 amount = lenders[_lender].deposits[_id].amount;
-        uint256 stableDiff = _endDate -
-            lenders[_lender].deposits[_id].startDate;
-        uint256 bonusDiff = _endDate -
-            lenders[_lender].deposits[_id].lastClaimDate;
+        Deposit memory depositData = lenders[_lender].deposits[_id];
+        uint256 amount = depositData.amount;
+        uint256 stableDiff = _endDate - depositData.startDate;
+        uint256 bonusDiff = _endDate - depositData.lastClaimDate;
         return (
-            _calculateFormula(
-                amount,
-                stableDiff,
-                lenders[_lender].deposits[_id].apr
-            ) / 1E2,
-            _calculateFormula(
-                amount,
-                bonusDiff,
-                lenders[_lender].deposits[_id].rate
-            )
+            _calculateFormula(amount, stableDiff, depositData.apr) / 1E2,
+            _calculateFormula(amount, bonusDiff, depositData.rate)
         );
     }
 
@@ -770,13 +740,10 @@ contract FlexLender is IFlexLender, AccessControl {
      * @param _lender Represents the address of lender
      */
     function _getTotalDeposit(address _lender) private view returns (uint256) {
-        uint256 depositedAmount = lenders[_lender].amount;
-        for (
-            uint256 i = lenders[_lender].startId;
-            i < lenders[_lender].currentId;
-            i++
-        ) {
-            depositedAmount += lenders[_lender].deposits[i].amount;
+        Lender storage lenderData = lenders[_lender];
+        uint256 depositedAmount = lenderData.amount;
+        for (uint256 i = lenderData.startId; i < lenderData.currentId; i++) {
+            depositedAmount += lenderData.deposits[i].amount;
         }
         return depositedAmount;
     }
