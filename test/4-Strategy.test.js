@@ -22,7 +22,9 @@ describe("Strategy", function () {
   let accounts;
   let addresses;
   let lenderContract;
+  let flexLenderContract;
   let LenderFactory;
+  let FlexLenderFactory;
   let StrategyFactory;
   let strategy;
   let stableToken;
@@ -38,6 +40,7 @@ describe("Strategy", function () {
     accounts = await ethers.getSigners();
     addresses = accounts.map((account) => account.address);
     LenderFactory = await ethers.getContractFactory("FixLender");
+    FlexLenderFactory = await ethers.getContractFactory("FlexLender");
     await hre.network.provider.request({
       method: "hardhat_impersonateAccount",
       params: [AccountToImpersonateUSDC],
@@ -50,6 +53,15 @@ describe("Strategy", function () {
     await bonusToken.deployed();
     bonusAddress = bonusToken.address;
     StrategyFactory = await ethers.getContractFactory("Strategy");
+    flexLenderContract = await FlexLenderFactory.deploy(
+      addresses[0],
+      USDCAddress,
+      bonusAddress,
+      MinDeposit,
+      PoolMaxLimit
+    );
+    await flexLenderContract.deployed();
+
     lenderContract = await LenderFactory.deploy(
       addresses[0],
       USDCAddress,
@@ -74,6 +86,12 @@ describe("Strategy", function () {
     await expect(lenderContract.deposit(amount)).to.be.revertedWith(
       "There is no Strategy"
     );
+    await expect(
+      flexLenderContract["deposit(uint256)"](amount)
+    ).to.be.revertedWith("There is no Strategy");
+    await expect(
+      flexLenderContract["deposit(uint256,uint256)"](amount, 180)
+    ).to.be.revertedWith("There is no Strategy");
   });
 
   it("Should set first Strategy contract", async function () {
@@ -84,6 +102,9 @@ describe("Strategy", function () {
     );
     await strategy.deployed();
     await lenderContract.switchStrategy(strategy.address);
+    await expect(flexLenderContract.switchStrategy(strategy.address))
+      .to.emit(flexLenderContract, "StrategySwitched")
+      .withArgs(ZeroAddress, strategy.address);
   });
 
   it("Should fail to deposit without LENDER_POOL access", async function () {
@@ -98,6 +119,7 @@ describe("Strategy", function () {
       `AccessControl: account ${lenderContract.address.toLowerCase()} is missing role ${LenderPoolAccess}`
     );
     await strategy.grantRole(LenderPoolAccess, lenderContract.address);
+    await strategy.grantRole(LenderPoolAccess, flexLenderContract.address);
   });
 
   it("Should deposit 100 stable tokens with 5 accounts to strategy", async function () {
@@ -133,15 +155,32 @@ describe("Strategy", function () {
         32
       )}`
     );
+    await expect(
+      flexLenderContract.connect(accounts[1]).switchStrategy(strategy.address)
+    ).to.be.revertedWith(
+      `AccessControl: account ${addresses[1].toLowerCase()} is missing role ${ethers.utils.hexZeroPad(
+        ethers.utils.hexlify(0),
+        32
+      )}`
+    );
+  });
+
+  it("Should fail to set apr address without curve interface support", async function () {
+    await expect(
+      flexLenderContract.switchStrategy(stableToken.address)
+    ).to.be.revertedWith("Does not support Strategy interface");
   });
 
   it("Should fail to switch Strategy contract to invalid address", async function () {
     await expect(lenderContract.switchStrategy(ZeroAddress)).to.be.revertedWith(
       "Invalid Strategy Address"
     );
+    await expect(
+      flexLenderContract.switchStrategy(ZeroAddress)
+    ).to.be.revertedWith("Invalid Strategy Address");
   });
 
-  it("Should switch Strategy Contract and transfer funds from old strategy to new one", async function () {
+  it("Should switch Strategy Contract and transfer funds from old strategy to new one for fix lender", async function () {
     const oldStrategyBalance = await aStableToken.balanceOf(strategy.address);
     const oldBalance = parseFloat(await fromStable(oldStrategyBalance));
     strategy = await StrategyFactory.deploy(
@@ -201,5 +240,30 @@ describe("Strategy", function () {
         100 + 0.00001
       );
     }
+  });
+
+  it("Should deposit 100 stable tokens with 5 accounts to strategy for flex lender", async function () {
+    const amount = await toStable("100");
+    const bonusAmount = await toBonus("500");
+    await stableToken.transfer(flexLenderContract.address, 5 * amount);
+    await bonusToken.transfer(flexLenderContract.address, bonusAmount);
+    for (let i = 1; i < 6; i++) {
+      await stableToken.transfer(addresses[i], amount);
+      await stableToken
+        .connect(accounts[i])
+        .approve(flexLenderContract.address, amount);
+      await flexLenderContract.connect(accounts[i])["deposit(uint256)"](amount);
+    }
+  });
+
+  it("Should switch Strategy Contract and transfer funds from old strategy to new one for flex lender", async function () {
+    strategy = await StrategyFactory.deploy(
+      AAVEPool,
+      USDCAddress,
+      aUSDCAddress
+    );
+    await strategy.deployed();
+    await strategy.grantRole(LenderPoolAccess, flexLenderContract.address);
+    await flexLenderContract.switchStrategy(strategy.address);
   });
 });

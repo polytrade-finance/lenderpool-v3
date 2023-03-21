@@ -24,6 +24,9 @@ const {
   DAY,
   YEAR,
   SamplePeriod,
+  aUSDCAddress,
+  AAVEPool,
+  LenderPoolAccess,
 } = require("./constants/constants.helpers");
 const {
   toStable,
@@ -44,6 +47,7 @@ describe("Flexible Lender Pool", function () {
   let bonusToken;
   let bonusAddress;
   let impersonated;
+  let strategy;
 
   before(async function () {
     const hre = require("hardhat");
@@ -66,6 +70,8 @@ describe("Flexible Lender Pool", function () {
     const CurveFactory = await ethers.getContractFactory("BondingCurve");
     aprCurve = await CurveFactory.deploy(p1Apr, p2Apr, p3Apr, 6);
     rateCurve = await CurveFactory.deploy(p1Rate, p2Rate, p3Rate, 6);
+    const Strategy = await ethers.getContractFactory("Strategy");
+    strategy = await Strategy.deploy(AAVEPool, USDCAddress, aUSDCAddress);
   });
 
   describe("Constructor", function () {
@@ -302,6 +308,29 @@ describe("Flexible Lender Pool", function () {
         .to.emit(lenderContract, "DurationLimitChanged")
         .withArgs(LockingMinLimit, LockingMaxLimit);
     });
+
+    it("Should fail to to change Max Pool limit without admin access", async function () {
+      await expect(
+        lenderContract.connect(accounts[1]).changePoolLimit(PoolMaxLimit + 1)
+      ).to.be.revertedWith(
+        `AccessControl: account ${addresses[1].toLowerCase()} is missing role ${ethers.utils.hexZeroPad(
+          ethers.utils.hexlify(0),
+          32
+        )}`
+      );
+    });
+
+    it("Should fail to change Max Pool limit if Max is Zero", async function () {
+      await expect(lenderContract.changePoolLimit(0)).to.be.revertedWith(
+        "Max limit can not be zero"
+      );
+    });
+
+    it("Should change Max Pool limit", async function () {
+      await expect(lenderContract.changePoolLimit(PoolMaxLimit + 1000))
+        .to.emit(lenderContract, "PoolLimitChanged")
+        .withArgs(PoolMaxLimit, PoolMaxLimit + 1000);
+    });
   });
 
   describe("Deposit Without Lokcing Period", function () {
@@ -314,6 +343,8 @@ describe("Flexible Lender Pool", function () {
         PoolMaxLimit
       );
       await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
     });
 
     it("Should fail if lender didn't approve the same or higher stable for lender contract before deposit", async function () {
@@ -351,7 +382,7 @@ describe("Flexible Lender Pool", function () {
     });
 
     it("Should fail if deposit amount is less than Min. deposit", async function () {
-      const deposit = (MinDeposit - 1).toString();
+      const deposit = (99).toString();
       await stableToken
         .connect(accounts[1])
         .approve(lenderContract.address, toStable(deposit));
@@ -363,12 +394,9 @@ describe("Flexible Lender Pool", function () {
     });
 
     it("Should not increase pool Size if stable tokens transfer directly to contract", async function () {
-      const poolSizeBeforeTransfer = await lenderContract.poolSize();
-      await stableToken.transfer(
-        lenderContract.address,
-        toStable(`${PoolMaxLimit}`)
-      );
-      const poolSizeAfterTransfer = await lenderContract.poolSize();
+      const poolSizeBeforeTransfer = await lenderContract.getPoolSize();
+      await stableToken.transfer(lenderContract.address, PoolMaxLimit);
+      const poolSizeAfterTransfer = await lenderContract.getPoolSize();
       expect(poolSizeAfterTransfer).to.be.equal(poolSizeBeforeTransfer);
     });
 
@@ -394,6 +422,8 @@ describe("Flexible Lender Pool", function () {
         PoolMaxLimit
       );
       await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
     });
 
     it("Should fail if Duration Limit has not been set", async function () {
@@ -463,7 +493,7 @@ describe("Flexible Lender Pool", function () {
     });
 
     it("Should fail if deposit amount is less than Min. deposit", async function () {
-      const deposit = (MinDeposit - 1).toString();
+      const deposit = (99).toString();
       await stableToken
         .connect(accounts[1])
         .approve(lenderContract.address, toStable(deposit));
@@ -501,12 +531,9 @@ describe("Flexible Lender Pool", function () {
     });
 
     it("Should not increase pool Size if stable tokens transfer directly to contract", async function () {
-      const poolSizeBeforeTransfer = await lenderContract.poolSize();
-      await stableToken.transfer(
-        lenderContract.address,
-        toStable(`${PoolMaxLimit}`)
-      );
-      const poolSizeAfterTransfer = await lenderContract.poolSize();
+      const poolSizeBeforeTransfer = await lenderContract.getPoolSize();
+      await stableToken.transfer(lenderContract.address, PoolMaxLimit);
+      const poolSizeAfterTransfer = await lenderContract.getPoolSize();
       expect(poolSizeAfterTransfer).to.be.equal(poolSizeBeforeTransfer);
     });
 
@@ -535,6 +562,8 @@ describe("Flexible Lender Pool", function () {
         PoolMaxLimit
       );
       await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
     });
 
     it("Should fail if there is no deposit before initialization", async function () {
@@ -677,6 +706,8 @@ describe("Flexible Lender Pool", function () {
         PoolMaxLimit
       );
       await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
       await lenderContract.changeDurationLimit(
         LockingMinLimit,
         LockingMaxLimit
@@ -838,6 +869,8 @@ describe("Flexible Lender Pool", function () {
         PoolMaxLimit
       );
       await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
       await lenderContract.changeBaseRates(SampleAPR, SampleRate);
       await lenderContract.changeDurationLimit(
         LockingMinLimit,
@@ -949,6 +982,8 @@ describe("Flexible Lender Pool", function () {
         PoolMaxLimit
       );
       await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
       await lenderContract.changeBaseRates(SampleAPR, SampleRate);
       await lenderContract.changeDurationLimit(
         LockingMinLimit,
@@ -1065,11 +1100,11 @@ describe("Flexible Lender Pool", function () {
       for (let i = 1; i < 3; i++) {
         const bonusBeforeWith = await bonusToken.balanceOf(addresses[i]);
         const stableBeforeWith = await stableToken.balanceOf(addresses[i]);
-        const beforePoolSize = await lenderContract.poolSize();
+        const beforePoolSize = await lenderContract.getPoolSize();
         await lenderContract.connect(accounts[i])["withdraw()"]();
         await lenderContract.connect(accounts[i])["withdraw(uint256)"](1);
         await lenderContract.connect(accounts[i])["withdraw(uint256)"](0);
-        const afterPoolSize = await lenderContract.poolSize();
+        const afterPoolSize = await lenderContract.getPoolSize();
         const bonusAfterWith = await bonusToken.balanceOf(addresses[i]);
         const stableAfterWith = await stableToken.balanceOf(addresses[i]);
         const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
@@ -1090,6 +1125,8 @@ describe("Flexible Lender Pool", function () {
       const bonusAmount = await toBonus("300");
       const totalStableAmount = await toStable("300");
       const stableAmount = await toStable("100");
+      await stableToken.transfer(lenderContract.address, stableAmount);
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
       await stableToken.transfer(addresses[1], totalStableAmount);
       await stableToken
         .connect(accounts[1])
@@ -1143,6 +1180,8 @@ describe("Flexible Lender Pool", function () {
         PoolMaxLimit
       );
       await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
       await lenderContract.changeBaseRates(SampleAPR, SampleRate);
       await lenderContract.changeDurationLimit(
         LockingMinLimit,
@@ -1260,10 +1299,10 @@ describe("Flexible Lender Pool", function () {
       for (let i = 1; i < 4; i++) {
         const bonusBeforeWith = await bonusToken.balanceOf(addresses[i]);
         const stableBeforeWith = await stableToken.balanceOf(addresses[i]);
-        const beforePoolSize = await lenderContract.poolSize();
+        const beforePoolSize = await lenderContract.getPoolSize();
         await lenderContract.connect(accounts[i]).emergencyWithdraw(0);
         await lenderContract.connect(accounts[i]).emergencyWithdraw(1);
-        const afterPoolSize = await lenderContract.poolSize();
+        const afterPoolSize = await lenderContract.getPoolSize();
         const bonusAfterWith = await bonusToken.balanceOf(addresses[i]);
         const stableAfterWith = await stableToken.balanceOf(addresses[i]);
         const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
@@ -1275,6 +1314,209 @@ describe("Flexible Lender Pool", function () {
         expect(actualStable).to.be.equal(expectedStable);
         expect(poolSize).to.be.equal(2 * amount);
       }
+    });
+  });
+
+  describe("Getter funtions", function () {
+    before(async function () {
+      lenderContract = await LenderFactory.deploy(
+        addresses[0],
+        USDCAddress,
+        bonusAddress,
+        MinDeposit,
+        PoolMaxLimit
+      );
+      await lenderContract.deployed();
+      await lenderContract.switchStrategy(strategy.address);
+      await strategy.grantRole(LenderPoolAccess, lenderContract.address);
+      await lenderContract.changeBaseRates(SampleAPR, SampleRate);
+      await lenderContract.changeDurationLimit(
+        LockingMinLimit,
+        LockingMaxLimit
+      );
+      await lenderContract.switchAprBondingCurve(aprCurve.address);
+      await lenderContract.switchRateBondingCurve(rateCurve.address);
+    });
+
+    it("Should get max pool size", async function () {
+      expect(
+        await lenderContract.connect(accounts[1]).getMaxPoolSize()
+      ).to.be.equal(PoolMaxLimit);
+    });
+
+    it("Should get verification status of pool", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).getVerificationStatus()
+      ).to.be.equal(false);
+    });
+
+    it("Should get Base Apr", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).getBaseApr()
+      ).to.be.equal(SampleAPR / 100);
+    });
+
+    it("Should get Base Rate", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).getBaseRate()
+      ).to.be.equal(SampleRate);
+    });
+
+    it("Should get minimum locking duration", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).getMinLockingDuration()
+      ).to.be.equal(LockingMinLimit);
+    });
+
+    it("Should get maximum locking duration", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).getMaxLockingDuration()
+      ).to.be.equal(LockingMaxLimit);
+    });
+
+    it("Should get total deposit and pool size after depositing 3000 stable tokens with and without locking period", async function () {
+      const amount = await toStable("1000");
+      await stableToken.transfer(addresses[1], 3 * amount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, 3 * amount);
+      await lenderContract.connect(accounts[1])["deposit(uint256)"](amount);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256,uint256)"](amount, 90);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256,uint256)"](amount, 180);
+      expect(await lenderContract.getTotalDeposit(addresses[1])).to.be.equal(
+        3 * amount
+      );
+      expect(await lenderContract.getPoolSize()).to.be.equal(3 * amount);
+    });
+
+    it("Should get each deposit amount", async function () {
+      const amount = await toStable("1000");
+      expect(
+        await lenderContract["getDeposit(address)"](addresses[1])
+      ).to.be.equal(amount);
+      expect(
+        await lenderContract["getDeposit(address,uint256)"](addresses[1], 0)
+      ).to.be.equal(amount);
+      expect(
+        await lenderContract["getDeposit(address,uint256)"](addresses[1], 1)
+      ).to.be.equal(amount);
+    });
+
+    it("Should get 0 accumulated Bonus rewards right after depositing without locking", async function () {
+      const bonus = await lenderContract["getBonusRewards(address)"](
+        addresses[1]
+      );
+      const rounded = Math.round(await fromBonus(bonus));
+      expect(rounded).to.be.equal(0);
+    });
+
+    it("Should get 0 accumulated Bonus rewards right after depositing with locking", async function () {
+      const bonus1 = await lenderContract["getBonusRewards(address,uint256)"](
+        addresses[1],
+        0
+      );
+      const bonus2 = await lenderContract["getBonusRewards(address,uint256)"](
+        addresses[1],
+        1
+      );
+      const rounded1 = Math.round(await fromBonus(bonus1));
+      const rounded2 = Math.round(await fromBonus(bonus2));
+      expect(rounded1).to.be.equal(0);
+      expect(rounded2).to.be.equal(0);
+    });
+
+    it("Should get 0 accumulated stable rewards right after depositing without locking", async function () {
+      const bonus = await lenderContract["getStableRewards(address)"](
+        addresses[1]
+      );
+      const rounded = Math.round(await fromBonus(bonus));
+      expect(rounded).to.be.equal(0);
+    });
+
+    it("Should get 0 accumulated stable rewards right after depositing with locking", async function () {
+      const bonus1 = await lenderContract["getStableRewards(address,uint256)"](
+        addresses[1],
+        0
+      );
+      const bonus2 = await lenderContract["getStableRewards(address,uint256)"](
+        addresses[1],
+        1
+      );
+      const rounded1 = Math.round(await fromBonus(bonus1));
+      const rounded2 = Math.round(await fromBonus(bonus2));
+      expect(rounded1).to.be.equal(0);
+      expect(rounded2).to.be.equal(0);
+    });
+
+    it("Should deposit 1000 stable with deposit id 2 and 3 (third and forth deposit) and emergency withdraw second and third deposit and get active deposit return array [0,3]", async function () {
+      const amount = await toStable("1000");
+      await stableToken.transfer(addresses[1], 10 * amount);
+      await stableToken.transfer(lenderContract.address, 10 * amount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, 10 * amount);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256,uint256)"](amount, 90);
+      await lenderContract
+        .connect(accounts[1])
+        ["deposit(uint256,uint256)"](amount, 180);
+      await lenderContract.connect(accounts[1]).emergencyWithdraw(1);
+      await lenderContract.connect(accounts[1]).emergencyWithdraw(2);
+      const [first, second] = await lenderContract.getActiveDeposits(
+        addresses[1]
+      );
+      expect(first).to.be.equal(ethers.BigNumber.from(0));
+      expect(second).to.be.equal(ethers.BigNumber.from(3));
+    });
+
+    it("Should get rate and apr and locking days for each deposit", async function () {
+      expect(
+        await lenderContract.connect(accounts[1]).getApr(addresses[1], 0)
+      ).to.be.equal(499);
+      expect(
+        await lenderContract.connect(accounts[1]).getRate(addresses[1], 0)
+      ).to.be.equal(25);
+      expect(
+        await lenderContract
+          .connect(accounts[1])
+          .getLockingDuration(addresses[1], 0)
+      ).to.be.equal(90);
+      expect(
+        await lenderContract.connect(accounts[1]).getApr(addresses[1], 3)
+      ).to.be.equal(551);
+      expect(
+        await lenderContract.connect(accounts[1]).getRate(addresses[1], 3)
+      ).to.be.equal(38);
+      expect(
+        await lenderContract
+          .connect(accounts[1])
+          .getLockingDuration(addresses[1], 3)
+      ).to.be.equal(180);
+    });
+
+    it("Should emergency withdraw from deposit 0,3 and start from id 0 again for depositing", async function () {
+      const amount = await toStable("1000");
+      await lenderContract.connect(accounts[1]).emergencyWithdraw(0);
+      await lenderContract.connect(accounts[1]).emergencyWithdraw(3);
+      await expect(
+        lenderContract
+          .connect(accounts[1])
+          ["deposit(uint256,uint256)"](amount, 180)
+      )
+        .to.emit(lenderContract, "Deposited")
+        .withArgs(
+          addresses[1],
+          0,
+          amount,
+          180 * DAY,
+          551,
+          38 * 10 ** (BonusDecimal - StableDecimal)
+        );
     });
   });
 });
