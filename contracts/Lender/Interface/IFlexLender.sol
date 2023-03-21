@@ -28,6 +28,8 @@ interface IFlexLender {
         uint256 startDate;
     }
 
+    error UnsupportedInterface();
+
     /**
      * @notice Emits when new fund is deposited to the Lender Pool without locking period
      * @param lender is the address of the `lender`
@@ -106,11 +108,13 @@ interface IFlexLender {
      * @param lender is the address of the 'lender'
      * @param id is the deposit ID
      * @param amount is the amount that withdrawn by lender
+     * @param bonusReward is the amount available bonus rewards that calims automatically
      */
     event WithdrawnEmergency(
         address indexed lender,
         uint256 id,
-        uint256 amount
+        uint256 amount,
+        uint256 bonusReward
     );
 
     /**

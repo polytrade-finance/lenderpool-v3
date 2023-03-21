@@ -384,8 +384,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 calculatedReward = _calculateFormula(
             _totalDeposit,
             _diff,
-            _stableApr,
-            _YEAR
+            _stableApr
         );
         return calculatedReward;
     }
@@ -403,8 +402,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 calculatedBonus = _calculateFormula(
             _totalDeposit,
             _diff,
-            _bonusRate,
-            _poolPeriod
+            _bonusRate
         );
         return calculatedBonus;
     }
@@ -414,14 +412,12 @@ contract FixLender is IFixLender, AccessControl {
      * @param amount is the amount of deposited stable tokens
      * @param duration is the passed duration from last updated rewards
      * @param rate is the fixed _bonusRate or _stableApr for the pool
-     * @param period is the period that calculates rewards based on that
      */
     function _calculateFormula(
         uint256 amount,
         uint256 duration,
-        uint256 rate,
-        uint256 period
+        uint256 rate
     ) private pure returns (uint256) {
-        return ((amount * duration * rate) / 1E2) / period;
+        return ((amount * duration * rate) / 1E2) / _YEAR;
     }
 }

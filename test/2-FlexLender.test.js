@@ -247,15 +247,13 @@ describe("Flexible Lender Pool", function () {
     });
 
     it("Should fail to set apr address without curve interface support", async function () {
-      await expect(
-        lenderContract.switchAprBondingCurve(stableToken.address)
-      ).to.be.revertedWith("Does not support Curve interface");
+      await expect(lenderContract.switchAprBondingCurve(stableToken.address)).to
+        .be.reverted;
     });
 
     it("Should fail to set rate address without curve interface support", async function () {
-      await expect(
-        lenderContract.switchRateBondingCurve(stableToken.address)
-      ).to.be.revertedWith("Does not support Curve interface");
+      await expect(lenderContract.switchRateBondingCurve(stableToken.address))
+        .to.be.reverted;
     });
 
     it("Should set Apr bonding Curve", async function () {
@@ -1234,6 +1232,7 @@ describe("Flexible Lender Pool", function () {
       const amount = await toStable("100");
       const rate = 0;
       await stableToken.transfer(addresses[1], 2 * amount);
+      await bonusToken.transfer(lenderContract.address, await toBonus("100"));
       await stableToken
         .connect(accounts[1])
         .approve(lenderContract.address, 2 * amount);
@@ -1247,26 +1246,33 @@ describe("Flexible Lender Pool", function () {
         ["deposit(uint256,uint256)"](amount, SamplePeriod);
       await time.increase(80 * DAY);
       const expectedStable = 200 - 200 * rate;
-      const expectedBonus = 0;
+      const expectedBonus1 = await lenderContract[
+        "getBonusRewards(address,uint256)"
+      ](addresses[1], 0);
+      const expectedBonus2 = await lenderContract[
+        "getBonusRewards(address,uint256)"
+      ](addresses[1], 1);
       const bonusBeforeWith = await bonusToken.balanceOf(addresses[1]);
       const stableBeforeWith = await stableToken.balanceOf(addresses[1]);
+      const expectedBonus = expectedBonus1.add(expectedBonus2);
       for (let i = 0; i < 2; i++) {
-        await expect(lenderContract.connect(accounts[1]).emergencyWithdraw(i))
-          .to.emit(lenderContract, "WithdrawnEmergency")
-          .withArgs(addresses[1], i, amount);
+        await lenderContract.connect(accounts[1]).emergencyWithdraw(i);
       }
       const bonusAfterWith = await bonusToken.balanceOf(addresses[1]);
       const stableAfterWith = await stableToken.balanceOf(addresses[1]);
       const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
       const stableBalance = stableAfterWith.sub(stableBeforeWith);
-      const actualBonus = parseFloat(await fromBonus(bonusBalance));
+      const actualBonus = Math.round(parseFloat(await fromBonus(bonusBalance)));
       const actualStable = parseFloat(await fromStable(stableBalance));
-      expect(actualBonus).to.be.equal(expectedBonus);
+      expect(actualBonus).to.be.equal(
+        Math.round(parseFloat(await fromBonus(expectedBonus)))
+      );
       expect(actualStable).to.be.equal(expectedStable);
     });
 
     it("Should deposit 100 stable with 3 different accounts and emergency withdraw before locking period (Rate: 0.52%) and decrease pool size", async function () {
       const rate = 0.0052;
+      await bonusToken.transfer(lenderContract.address, await toBonus("10000"));
       await expect(lenderContract.setWithdrawRate(52))
         .to.emit(lenderContract, "WithdrawRateChanged")
         .withArgs(0, 52);
@@ -1290,13 +1296,18 @@ describe("Flexible Lender Pool", function () {
       const Period = SamplePeriod * DAY;
       const passedPeriod = Period / 2;
       await time.increase(passedPeriod);
-      const expectedBonus = 0;
       const unroundExpectedStable = 200 - 200 * rate;
       // need to round expected stable with 6 decimal since stable has 6 decimal
       const expectedStable =
         Math.round(unroundExpectedStable * 10 ** StableDecimal) /
         10 ** StableDecimal;
       for (let i = 1; i < 4; i++) {
+        const expectedBonus1 = await lenderContract[
+          "getBonusRewards(address,uint256)"
+        ](addresses[i], 0);
+        const expectedBonus2 = await lenderContract[
+          "getBonusRewards(address,uint256)"
+        ](addresses[i], 1);
         const bonusBeforeWith = await bonusToken.balanceOf(addresses[i]);
         const stableBeforeWith = await stableToken.balanceOf(addresses[i]);
         const beforePoolSize = await lenderContract.getPoolSize();
@@ -1306,11 +1317,16 @@ describe("Flexible Lender Pool", function () {
         const bonusAfterWith = await bonusToken.balanceOf(addresses[i]);
         const stableAfterWith = await stableToken.balanceOf(addresses[i]);
         const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
+        const expectedBonus = expectedBonus1.add(expectedBonus2);
         const stableBalance = stableAfterWith.sub(stableBeforeWith);
         const poolSize = beforePoolSize.sub(afterPoolSize);
-        const actualBonus = parseFloat(await fromBonus(bonusBalance));
+        const actualBonus = Math.round(
+          parseFloat(await fromBonus(bonusBalance))
+        );
         const actualStable = parseFloat(await fromStable(stableBalance));
-        expect(actualBonus).to.be.equal(expectedBonus);
+        expect(actualBonus).to.be.equal(
+          Math.round(parseFloat(await fromBonus(expectedBonus)))
+        );
         expect(actualStable).to.be.equal(expectedStable);
         expect(poolSize).to.be.equal(2 * amount);
       }
@@ -1454,6 +1470,7 @@ describe("Flexible Lender Pool", function () {
 
     it("Should deposit 1000 stable with deposit id 2 and 3 (third and forth deposit) and emergency withdraw second and third deposit and get active deposit return array [0,3]", async function () {
       const amount = await toStable("1000");
+      await bonusToken.transfer(lenderContract.address, await toBonus("100"));
       await stableToken.transfer(addresses[1], 10 * amount);
       await stableToken.transfer(lenderContract.address, 10 * amount);
       await stableToken
@@ -1501,6 +1518,7 @@ describe("Flexible Lender Pool", function () {
 
     it("Should emergency withdraw from deposit 0,3 and start from id 0 again for depositing", async function () {
       const amount = await toStable("1000");
+      await bonusToken.transfer(lenderContract.address, await toBonus("100"));
       await lenderContract.connect(accounts[1]).emergencyWithdraw(0);
       await lenderContract.connect(accounts[1]).emergencyWithdraw(3);
       await expect(

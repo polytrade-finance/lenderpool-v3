@@ -166,9 +166,8 @@ describe("Strategy", function () {
   });
 
   it("Should fail to set apr address without curve interface support", async function () {
-    await expect(
-      flexLenderContract.switchStrategy(stableToken.address)
-    ).to.be.revertedWith("Does not support Strategy interface");
+    await expect(flexLenderContract.switchStrategy(stableToken.address)).to.be
+      .reverted;
   });
 
   it("Should fail to switch Strategy contract to invalid address", async function () {
