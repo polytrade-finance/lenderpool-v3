@@ -41,12 +41,13 @@ contract FlexLender is IFlexLender, AccessControl {
         type(IVerification).interfaceId;
     bool private _verificationStatus;
 
-    IToken private immutable _stableToken;
-    IToken private immutable _bonusToken;
-    IBondingCurve private _aprBondingCurve;
-    IBondingCurve private _rateBondingCurve;
     IVerification public verification;
     IStrategy public strategy;
+    IBondingCurve private _aprBondingCurve;
+    IBondingCurve private _rateBondingCurve;
+    IToken private immutable _stableToken;
+    IToken private immutable _bonusToken;
+
 
     modifier isValid() {
         if (_verificationStatus)
