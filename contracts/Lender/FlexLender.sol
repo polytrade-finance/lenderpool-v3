@@ -132,7 +132,7 @@ contract FlexLender is IFlexLender, AccessControl {
             "Does not support Strategy interface"
         );
         address oldStrategy = address(strategy);
-        uint256 amount = 0;
+        uint256 amount;
         if (oldStrategy != address(0)) {
             amount = strategy.getBalance();
             strategy.withdraw(amount);
