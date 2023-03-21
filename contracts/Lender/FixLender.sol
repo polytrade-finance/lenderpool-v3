@@ -92,8 +92,8 @@ contract FixLender is IFixLender, AccessControl {
         _poolStartDate = poolStartDate_;
         _depositEndDate = depositEndDate_;
         _poolPeriod = poolPeriod_ * 1 days;
-        _minDeposit = minDeposit_ * (10 ** _stableDecimal);
-        _poolMaxLimit = poolMaxLimit_ * (10 ** _stableDecimal);
+        _minDeposit = minDeposit_;
+        _poolMaxLimit = poolMaxLimit_;
         _verificationStatus = verification_;
         _poolEndDate = _poolPeriod + _poolStartDate;
     }

@@ -29,13 +29,20 @@ interface IFlexLender {
     }
 
     /**
-     * @notice Emits when new fund is deposited to the Lender Pool
+     * @notice Emits when new fund is deposited to the Lender Pool without locking period
+     * @param lender is the address of the `lender`
+     * @param amount is the stable tokens deposited by the lender
+     */
+    event BaseDeposited(address indexed lender, uint256 amount);
+
+    /**
+     * @notice Emits when new fund is deposited to the Lender Pool with locking period
      * @param lender is the address of the `lender`
      * @param id is the deposit ID
      * @param amount is the stable tokens deposited by the lender
      * @param lockingDuration is the duration of locking period
      * @param apr is the deposit APR for calculating stable rewards
-     * @param rate is the deposit Rate for calculating Trade rewards
+     * @param rate is the deposit Rate for calculating Bonus rewards
      */
     event Deposited(
         address indexed lender,
@@ -49,24 +56,50 @@ interface IFlexLender {
     /**
      * @notice Emits when deposited funds withdrawn from the Lender Pool
      * @param lender is the address of the `lender`
-     * @param id is the deposit ID
-     * @param amount is the principal stable amount of deposit + stable Reward lender received based on APR
-     * @param bonusReward is the remaining $TRADE rewards lender received based on the Rate
+     * @param amount is the principal stable amount of deposit + stable Reward lender received based on Base APR
+     * @param bonusReward is the remaining Bonus rewards lender received based on the Rate
      */
-    // event Withdrawn(
-    //     address indexed lender,
-    //     uint256 id,
-    //     uint256 amount,
-    //     uint256 bonusReward
-    // );
+    event BaseWithdrawn(
+        address indexed lender,
+        uint256 amount,
+        uint256 bonusReward
+    );
 
     /**
-     * @notice Emits when lender claims Bonus rewards
+     * @notice Emits when deposited funds withdrawn from the Lender Pool for specific deposit
+     * @param lender is the address of the `lender`
+     * @param id is the deposit ID
+     * @param amount is the principal stable amount of deposit + stable Reward lender received based on APR
+     * @param bonusReward is the remaining Bonus rewards lender received based on the Rate
+     */
+    event Withdrawn(
+        address indexed lender,
+        uint256 id,
+        uint256 amount,
+        uint256 bonusReward
+    );
+
+    /**
+     * @notice Emits when lender claims Bonus rewards for specific deposit
      * @param lender is the address of the 'lender'
-     * @param id is the deposit ID and id zero represents deposit without locking period
+     * @param id is the deposit ID
      * @param bonusReward is the accumulated Bonus rewards lender received based on the Rate
      */
     event BonusClaimed(address indexed lender, uint256 id, uint256 bonusReward);
+
+    /**
+     * @notice Emits when lender claims Bonus rewards from base deposit
+     * @param lender is the address of the 'lender'
+     * @param bonusReward is the accumulated Bonus rewards lender received based on the Base Rate
+     */
+    event BaseBonusClaimed(address indexed lender, uint256 bonusReward);
+
+    /**
+     * @notice Emits when lender claims Bonus rewards from all deposits
+     * @param lender is the address of the 'lender'
+     * @param bonusReward is the total accumulated Bonus rewards lender received based on the Rate
+     */
+    event AllBonusClaimed(address indexed lender, uint256 bonusReward);
 
     /**
      * @notice Emits when a lender tries to withdraw from pool before pool end date
@@ -74,18 +107,25 @@ interface IFlexLender {
      * @param id is the deposit ID
      * @param amount is the amount that withdrawn by lender
      */
-    // event WithdrawnEmergency(
-    //     address indexed lender,
-    //     uint256 id,
-    //     uint256 amount
-    // );
+    event WithdrawnEmergency(
+        address indexed lender,
+        uint256 id,
+        uint256 amount
+    );
 
     /**
      * @notice Emits when a admin change the rate for emergency withdraw fee
      * @param oldRate is the old withdraw rate
      * @param newRate is the new withdraw rate
      */
-    // event WithdrawRateChanged(uint256 oldRate, uint256 newRate);
+    event WithdrawRateChanged(uint256 oldRate, uint256 newRate);
+
+    /**
+     * @notice Emits when a admin change status of verification
+     * @param oldStatus is the old status for verification requirement
+     * @param newStatus is the new status for verification requirement
+     */
+    event VerificationStatusChanged(bool oldStatus, bool newStatus);
 
     /**
      * @notice Emits when new verification contract is used
@@ -93,10 +133,10 @@ interface IFlexLender {
      * @param oldVerification is the old verification contract Address
      * @param newVerification is the new verification contract Address
      */
-    // event VerificationSwitched(
-    //     address oldVerification,
-    //     address newVerification
-    // );
+    event VerificationSwitched(
+        address oldVerification,
+        address newVerification
+    );
 
     /**
      * @notice Emitted when staking strategy is switched
@@ -104,7 +144,7 @@ interface IFlexLender {
      * @param oldStrategy is the address of the old staking strategy
      * @param newStrategy is the address of the new staking strategy
      */
-    // event StrategySwitched(address oldStrategy, address newStrategy);
+    event StrategySwitched(address oldStrategy, address newStrategy);
 
     /**
      * @notice Emitted when APR bonding curve is switched
@@ -157,7 +197,7 @@ interface IFlexLender {
      * @param oldLimit is the old maximum limit for depositing
      * @param newLimit is the new maximum limit for depositing
      */
-    // event MaxLimitChanged(uint256 oldLimit, uint256 newLimit);
+    event PoolLimitChanged(uint256 oldLimit, uint256 newLimit);
 
     /**
      * @notice Deposits an amount of stable token without locking period in the base lender pool
@@ -166,7 +206,7 @@ interface IFlexLender {
      * Requirements:
      * - `amount` should be greater than zero
      * - `amount` must be approved from the stable token contract for the LenderPool
-     * Emits {Deposited} event
+     * Emits {BaseDeposited} event
      */
     function deposit(uint256 amount) external;
 
@@ -180,15 +220,19 @@ interface IFlexLender {
      * - `amount` must be approved from the stable token contract for the LenderPool
      * - `lockingDuration` should be less than max duration and more than min duration
      * Emits {Deposited} event
+     * return Deposit ID
      */
-    function deposit(uint256 amount, uint256 lockingDuration) external;
+    function deposit(
+        uint256 amount,
+        uint256 lockingDuration
+    ) external returns (uint256);
 
     /**
      * @notice Claims the bonus rewards to the lender for all deposits
      * @dev `claimBonus` transfers all the accumulated bonus rewards to `msg.sender`
      * Requirements :
      * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
-     * Emits {BonusClaimed} event
+     * Emits {AllBonusClaimed} event
      */
     function claimAllBonuses() external;
 
@@ -197,7 +241,7 @@ interface IFlexLender {
      * @dev `claimBonus` transfers all the accumulated bonus rewards to `msg.sender`
      * Requirements :
      * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
-     * Emits {BonusClaimed} event
+     * Emits {BaseBonusClaimed} event
      */
     function claimBonus() external;
 
@@ -213,24 +257,35 @@ interface IFlexLender {
 
     /**
      * @notice Withdraws principal deposited tokens + Stable rewards + remaining bonus rewards
-     * @param _id Represents the ID of deposit that lender tries to withdraw after locking period
+     * for the deposit without locking period
      * Requirements:
-     * - `_id` should represent a deposit that has been passed its lock period or `0` for base pool
+     * - `LenderPool` should have stable tokens more than or equal to lender stable rewards + principal amount
+     * - `LenderPool` should have bonus tokens more than or equal to lender accumulated bonus rewards
+     * Emits {BaseWithdrawn} event
+     */
+    function withdraw() external;
+
+    /**
+     * @notice Withdraws principal deposited tokens + Stable rewards + remaining bonus rewards for a specific deposit
+     * @param id Represents the ID of deposit that lender tries to withdraw after locking period
+     * Requirements:
+     * - `id` should represent a deposit that has been passed its lock period
      * - `LenderPool` should have stable tokens more than or equal to lender stable rewards + principal amount
      * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
      * Emits {Withdrawn} event
      */
-    // function withdraw(uint256 _id) external;
+    function withdraw(uint256 id) external;
 
     /**
      * @notice Withdraws principal total deposit minus fee that is a percentage of total deposit for a specific deposit
+     * @param id Represents the ID of deposit that lender tries to emergency withdraw before locking period
      * Requirements:
-     * - Should be called before pool end date
-     * - 'msg.sender' should have deposit
+     * - Should be called before locknig period ends
+     * - 'msg.sender' should have deposit with specific id
      * - Lender should have enough stable token to transfer
      * Emits {WithdrawnEmergency} event
      */
-    // function emergencyWithdraw(uint256 _id) external;
+    function emergencyWithdraw(uint256 id) external;
 
     /**
      * @dev Changes the Bonding Curve that calculates the APR for different locking periods and
@@ -269,152 +324,153 @@ interface IFlexLender {
 
     /**
      * @dev Changes the maximum limit of deposit allowed for flexible pool
-     * @param _newLimit is the new maximum limit for lender pool
-     * Emits {MaxLimitChanged} event
+     * @param newLimit is the new maximum limit for lender pool with stable decimals
+     * Emits {PoolLimitChanged} event
      */
-    // function changeMaxLimit(uint256 _newLimit) external;
+    function changePoolLimit(uint256 newLimit) external;
 
     /**
-     * @dev Changes status of requirement of verification for depositing
+     * @dev Changes status of verification requirement for depositing
      * @dev can be called only by owner
+     * Emits {VerificationStatusChanged} event
      */
-    // function changeVerificationStatus() external;
+    function changeVerificationStatus() external;
 
     /**
      * @dev Changes the Verification contract that has been used for checking verification of lenders
-     * @param _newVerification is the address of the new verification contract
+     * @param newVerification is the address of the new verification contract
      * Emits {VerificationSwitched} event
      */
-    // function switchVerification(address _newVerification) external;
+    function switchVerification(address newVerification) external;
 
     /**
      * @dev Changes the Strategy contract that has been used for using funds in defi protocols
-     * @param _newStrategy is the address of the new strategy contract
+     * @param newStrategy is the address of the new strategy contract
      * Emits {StrategySwitched} event
      */
-    // function switchStrategy(address _newStrategy) external;
+    function switchStrategy(address newStrategy) external;
 
     /**
      * @dev returns the all deposited amount of a specific lender
      * @param lender Represents the address of lender
      */
-    // function getTotalDeposit(address lender) external view returns (uint256);
+    function getTotalDeposit(address lender) external view returns (uint256);
 
     /**
      * @dev returns the deposited amount without locking period for a specific lender
      * @param lender Represents the address of lender
      */
-    // function getDeposit(address lender) external view returns (uint256);
+    function getDeposit(address lender) external view returns (uint256);
 
     /**
      * @dev returns the deposited amount of a specific lender and deposit
      * @param lender Represents the address of lender
      * @param id Represents the id of a deposit
      */
-    // function getDeposit(
-    //     address lender,
-    //     uint256 id
-    // ) external view returns (uint256);
+    function getDeposit(
+        address lender,
+        uint256 id
+    ) external view returns (uint256);
 
     /**
-     * @dev returns all the available bonus rewards to claim for a specific lender and deposit
-     * @param _lender Represents the address of lender
+     * @dev returns all the available bonus rewards to claim for a specific lender for deposit without locking
+     * @param lender Represents the address of lender
      */
-    // function getBonusRewards(address _lender) external view returns (uint256);
+    function getBonusRewards(address lender) external view returns (uint256);
 
     /**
      * @dev returns the available bonus rewards to claim for a specific lender and deposit
-     * @param _lender Represents the address of lender
-     * @param _id Represents the id of a deposit and for base pool is `0`
+     * @param lender Represents the address of lender
+     * @param id Represents the id of a deposit and for base pool is `0`
      */
-    // function getBonusRewards(
-    //     address _lender,
-    //     uint256 _id
-    // ) external view returns (uint256);
+    function getBonusRewards(
+        address lender,
+        uint256 id
+    ) external view returns (uint256);
 
     /**
      * @dev returns all the accumulated amount of stable rewards for a specific lender
-     * @param _lender Represents the address of lender
+     * @param lender Represents the address of lender
      */
-    // function getStableRewards(address _lender) external view returns (uint256);
+    function getStableRewards(address lender) external view returns (uint256);
 
     /**
      * @dev returns the accumulated amount of stable rewards for a specific lender and depsoit
-     * @param _lender Represents the address of lender
-     * @param _id Represents the id of a deposit and for base pool is `0`
+     * @param lender Represents the address of lender
+     * @param id Represents the id of a deposit and for base pool is `0`
      */
-    // function getStableRewards(
-    //     address _lender,
-    //     uint256 _id
-    // ) external view returns (uint256);
+    function getStableRewards(
+        address lender,
+        uint256 id
+    ) external view returns (uint256);
 
     /**
      * @dev returns the APR for a specific deposit and lender without decimals in percenrtage
-     * @param _id Represents the id of a deposit
+     * @param lender Represents the address of lender
+     * @param id Represents the id of a deposit
      */
-    // function getApr(
-    //     address _lender,
-    //     uint256 _id
-    // ) external view returns (uint256);
+    function getApr(address lender, uint256 id) external view returns (uint256);
 
     /**
      * @dev returns the Rate of bonus reward for a specific deposit and lender with 2 decimals
-     * @param _id Represents the id of a deposit
+     * @param lender Represents the address of lender
+     * @param id Represents the id of a deposit
      */
-    // function getRate(
-    //     address _lender,
-    //     uint256 _id
-    // ) external view returns (uint256);
+    function getRate(
+        address lender,
+        uint256 id
+    ) external view returns (uint256);
 
     /**
      * @dev returns the base APR without decimals in percenrtage
      */
-    // function getBaseApr() external view returns (uint256);
+    function getBaseApr() external view returns (uint256);
 
     /**
      * @dev returns the base Rate of bonus reward with 2 decimals
      */
-    // function getBaseRate() external view returns (uint256);
+    function getBaseRate() external view returns (uint256);
 
     /**
      * @dev returns the duration of locking period for a lender and a specific deposit
-     * @param _id Represents the id of a deposit
+     * @param lender Represents the address of lender
+     * @param id Represents the id of a deposit
      */
-    // function getLockingDuration(
-    //     address _lender,
-    //     uint256 _id
-    // ) external view returns (uint256);
+    function getLockingDuration(
+        address lender,
+        uint256 id
+    ) external view returns (uint256);
 
     /**
      * @dev returns the minimum duration required for locking in the pool
      */
-    // function getMinLockingDuration() external view returns (uint256);
+    function getMinLockingDuration() external view returns (uint256);
 
     /**
      * @dev returns the maximum duration required for locking in the pool
      */
-    // function getMaxLockingDuration() external view returns (uint256);
+    function getMaxLockingDuration() external view returns (uint256);
 
     /**
      * @dev returns the current pool size
      */
-    // function getPoolSize() external view returns (uint256);
+    function getPoolSize() external view returns (uint256);
 
     /**
      * @dev returns the pool maximum size that after reaching this limit users can not deposit
      */
-    // function getMaxPoolSize() external view returns (uint256);
+    function getMaxPoolSize() external view returns (uint256);
 
     /**
      * @dev returns the require verification status of lender pool
      */
-    // function getVerificationStatus() external view returns (bool);
+    function getVerificationStatus() external view returns (bool);
 
     /**
      * @dev returns an id array of the active deposits for a lender
-     * @param _lender Represents the address of lender
+     * @param lender Represents the address of lender
      */
-    // function getActiveDeposits(
-    //     address _lender
-    // ) external view returns (uint256[] calldata);
+    function getActiveDeposits(
+        address lender
+    ) external view returns (uint256[] calldata);
 }

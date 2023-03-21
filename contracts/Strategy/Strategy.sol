@@ -59,4 +59,15 @@ contract Strategy is IStrategy, AccessControl {
     function getBalance() external view returns (uint256) {
         return aStable.balanceOf(address(this));
     }
+
+    /**
+     * @dev See {IERC165-supportsInterface}.
+     */
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override(AccessControl) returns (bool) {
+        return
+            interfaceId == type(IStrategy).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
 }

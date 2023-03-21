@@ -25,7 +25,3 @@ module.exports.toBonus = async function toBonus(amount) {
 module.exports.toRate = async function toRate(amount, bDecimal, sDecimal) {
   return amount * 10 ** (bDecimal - sDecimal);
 };
-
-module.exports.toApr = async function toApr(amount) {
-  return amount / 100;
-};
