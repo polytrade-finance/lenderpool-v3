@@ -147,13 +147,12 @@ contract FlexLender is IFlexLender, AccessControl {
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(baseStableApr < 10001, "Invalid Stable Apr");
         require(baseBonusRate < 10001, "Invalid Bonus Rate");
-        uint256 oldStableApr = rateRounds[_currentRateRound].stableApr;
-        uint256 oldBonusRate = rateRounds[_currentRateRound].bonusRate;
+        RateInfo memory roundData = rateRounds[_currentRateRound];
         uint256 newStableApr = baseStableApr / 1E2;
         uint256 newBonusRate = baseBonusRate *
             (10 ** (_bonusDecimal - _stableDecimal));
         unchecked {
-            _currentRateRound++;
+            ++_currentRateRound;
         }
         rateRounds[_currentRateRound] = RateInfo(
             newStableApr,
@@ -161,9 +160,9 @@ contract FlexLender is IFlexLender, AccessControl {
             block.timestamp
         );
         emit BaseRateChanged(
-            oldStableApr,
+            roundData.stableApr,
             newStableApr,
-            oldBonusRate,
+            roundData.bonusRate,
             newBonusRate
         );
     }
@@ -267,7 +266,7 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 lockingPeriod = lockingDuration * 1 days;
         uint256 currentId = lenderData.currentId;
         unchecked {
-            lenderData.currentId++;
+            ++lenderData.currentId;
         }
         _poolSize = _poolSize + amount;
         lenderData.deposits[currentId] = Deposit(
@@ -299,7 +298,7 @@ contract FlexLender is IFlexLender, AccessControl {
             if (lenderData.deposits[i].amount != 0)
                 bonusReward = bonusReward + _claimBonus(i);
             unchecked {
-                i++;
+                ++i;
             }
         }
         bonusReward = bonusReward + _claimBonus();
@@ -590,7 +589,7 @@ contract FlexLender is IFlexLender, AccessControl {
         for (uint256 i = lenderData.startId; i < lenderData.currentId; ) {
             if (lenderData.deposits[i].amount != 0) activeDeposits[j++] = i;
             unchecked {
-                i++;
+                ++i;
             }
         }
         return activeDeposits;
@@ -679,11 +678,11 @@ contract FlexLender is IFlexLender, AccessControl {
         for (uint256 i = lenderData.startId; i < lenderData.currentId; ) {
             if (lenderData.deposits[i].amount != 0) {
                 unchecked {
-                    count++;
+                    ++count;
                 }
             }
             unchecked {
-                i++;
+                ++i;
             }
         }
         return count;
@@ -748,8 +747,11 @@ contract FlexLender is IFlexLender, AccessControl {
     function _getTotalDeposit(address _lender) private view returns (uint256) {
         Lender storage lenderData = lenders[_lender];
         uint256 depositedAmount = lenderData.amount;
-        for (uint256 i = lenderData.startId; i < lenderData.currentId; i++) {
+        for (uint256 i = lenderData.startId; i < lenderData.currentId; ) {
             depositedAmount = depositedAmount + lenderData.deposits[i].amount;
+            unchecked {
+                ++i;
+            }
         }
         return depositedAmount;
     }
