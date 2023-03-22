@@ -166,6 +166,8 @@ describe("Strategy", function () {
   });
 
   it("Should fail to set apr address without curve interface support", async function () {
+    await expect(lenderContract.switchStrategy(stableToken.address)).to.be
+      .reverted;
     await expect(flexLenderContract.switchStrategy(stableToken.address)).to.be
       .reverted;
   });

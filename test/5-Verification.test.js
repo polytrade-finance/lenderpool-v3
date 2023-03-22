@@ -93,8 +93,9 @@ describe("Verification", function () {
     await expect(
       lenderContract.switchVerification(ZeroAddress)
     ).to.be.revertedWith("Invalid Verification Address");
-    await expect(flexLenderContract.switchVerification(ZeroAddress)).to.be
-      .reverted;
+    await expect(
+      flexLenderContract.switchVerification(ZeroAddress)
+    ).to.be.revertedWith("Invalid Verification Address");
   });
 
   it("Should fail to change verification without admin access", async function () {
@@ -121,6 +122,8 @@ describe("Verification", function () {
   });
 
   it("Should fail to set apr address without interface support", async function () {
+    await expect(lenderContract.switchVerification(stableToken.address)).to.be
+      .reverted;
     await expect(flexLenderContract.switchVerification(stableToken.address)).to
       .be.reverted;
   });

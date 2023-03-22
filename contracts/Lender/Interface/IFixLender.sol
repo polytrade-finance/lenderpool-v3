@@ -13,6 +13,8 @@ interface IFixLender {
         uint256 lastUpdateDate;
     }
 
+    error UnsupportedInterface();
+
     /**
      * @notice Emits when new fund is deposited to the Lender Pool
      * @param lender is the address of the 'lender'

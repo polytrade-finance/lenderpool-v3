@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
 import "contracts/Token/Interface/IToken.sol";
 import "contracts/Lender/Interface/IFixLender.sol";
 import "contracts/Verification/Interface/IVerification.sol";
@@ -17,6 +18,8 @@ import "contracts/Strategy/Interface/IStrategy.sol";
  */
 contract FixLender is IFixLender, AccessControl {
     using SafeERC20 for IToken;
+    using ERC165Checker for address;
+
     mapping(address => Lender) public lenders;
 
     uint256 private _poolSize;
@@ -32,6 +35,10 @@ contract FixLender is IFixLender, AccessControl {
     uint256 private immutable _poolEndDate;
     uint256 private immutable _minDeposit;
     uint256 private immutable _poolMaxLimit;
+    bytes4 private constant _STRATEGY_INTERFACE_ID =
+        type(IStrategy).interfaceId;
+    bytes4 private constant _VERIFICATION_INTERFACE_ID =
+        type(IVerification).interfaceId;
     bool private immutable _verificationStatus;
 
     IVerification public verification;
@@ -81,7 +88,7 @@ contract FixLender is IFixLender, AccessControl {
         require(depositEndDate_ > block.timestamp, "Invalid Deposit End Date");
         require(poolPeriod_ != 0, "Invalid Pool Duration");
         require(poolMaxLimit_ > minDeposit_, "Invalid Pool Max. Limit");
-        require(bonusRate_ <= 10000, "Invalid Bonus Rate");
+        require(bonusRate_ < 10001, "Invalid Bonus Rate");
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
         _stableToken = IToken(stableToken_);
         _bonusToken = IToken(bonusToken_);
@@ -108,6 +115,8 @@ contract FixLender is IFixLender, AccessControl {
         address newVerification
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newVerification != address(0), "Invalid Verification Address");
+        if (!newVerification.supportsInterface(_VERIFICATION_INTERFACE_ID))
+            revert UnsupportedInterface();
         address oldVerification = address(verification);
         verification = IVerification(newVerification);
         emit VerificationSwitched(oldVerification, newVerification);
@@ -124,14 +133,16 @@ contract FixLender is IFixLender, AccessControl {
         address newStrategy
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(newStrategy != address(0), "Invalid Strategy Address");
+        if (!newStrategy.supportsInterface(_STRATEGY_INTERFACE_ID))
+            revert UnsupportedInterface();
         address oldStrategy = address(strategy);
+        uint256 amount;
         if (oldStrategy != address(0)) {
-            uint256 amount = strategy.getBalance();
+            amount = strategy.getBalance();
             strategy.withdraw(amount);
-            strategy = IStrategy(newStrategy);
-            _depositInStrategy(amount);
         }
         strategy = IStrategy(newStrategy);
+        if (amount > 0) _depositInStrategy(amount);
         emit StrategySwitched(oldStrategy, newStrategy);
     }
 
@@ -149,17 +160,18 @@ contract FixLender is IFixLender, AccessControl {
             block.timestamp < _depositEndDate,
             "Deposit End Date has passed"
         );
-        uint256 currentDeposit = lenders[msg.sender].totalDeposit;
-        uint256 pendingStableReward = lenders[msg.sender].pendingStableReward;
-        uint256 pendingBonusReward = lenders[msg.sender].pendingBonusReward;
+        Lender memory lenderData = lenders[msg.sender];
+        uint256 currentDeposit = lenderData.totalDeposit;
+        uint256 pendingStableReward = lenderData.pendingStableReward;
+        uint256 pendingBonusReward = lenderData.pendingBonusReward;
         uint256 lastUpdateDate = _poolStartDate;
-        _poolSize += amount;
+        _poolSize = _poolSize + amount;
         if (block.timestamp > _poolStartDate) {
             (uint256 stableReward, uint256 bonusReward) = _calculateRewards(
                 msg.sender
             );
-            pendingStableReward += stableReward;
-            pendingBonusReward += bonusReward;
+            pendingStableReward = pendingStableReward + stableReward;
+            pendingBonusReward = pendingBonusReward + bonusReward;
             lastUpdateDate = block.timestamp;
         }
         lenders[msg.sender] = Lender(
@@ -185,11 +197,13 @@ contract FixLender is IFixLender, AccessControl {
         (uint256 stableReward, uint256 bonusReward) = _calculateRewards(
             msg.sender
         );
-        lenders[msg.sender].pendingStableReward += stableReward;
-        uint256 claimableBonus = bonusReward +
-            lenders[msg.sender].pendingBonusReward;
-        lenders[msg.sender].pendingBonusReward = 0;
-        lenders[msg.sender].lastUpdateDate = block.timestamp > _poolEndDate
+        Lender storage lenderData = lenders[msg.sender];
+        lenderData.pendingStableReward =
+            lenderData.pendingStableReward +
+            stableReward;
+        uint256 claimableBonus = bonusReward + lenderData.pendingBonusReward;
+        lenderData.pendingBonusReward = 0;
+        lenderData.lastUpdateDate = block.timestamp > _poolEndDate
             ? _poolEndDate
             : block.timestamp;
         _bonusToken.safeTransfer(msg.sender, claimableBonus);
@@ -208,14 +222,14 @@ contract FixLender is IFixLender, AccessControl {
         (uint256 stableReward, uint256 bonusReward) = _calculateRewards(
             msg.sender
         );
-        uint256 totalDeposit = lenders[msg.sender].totalDeposit;
+        Lender memory lenderData = lenders[msg.sender];
+        uint256 totalDeposit = lenderData.totalDeposit;
         uint256 stableAmount = stableReward +
-            lenders[msg.sender].pendingStableReward +
+            lenderData.pendingStableReward +
             totalDeposit;
-        uint256 bonusAmount = bonusReward +
-            lenders[msg.sender].pendingBonusReward;
+        uint256 bonusAmount = bonusReward + lenderData.pendingBonusReward;
         delete lenders[msg.sender];
-        _poolSize -= totalDeposit;
+        _poolSize = _poolSize - totalDeposit;
         strategy.withdraw(totalDeposit);
         _bonusToken.safeTransfer(msg.sender, bonusAmount);
         _stableToken.safeTransfer(msg.sender, stableAmount);
@@ -238,7 +252,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 withdrawFee = (totalDeposit * _withdrawPenaltyPercent) / 1E4;
         uint256 refundAmount = totalDeposit - withdrawFee;
         delete lenders[msg.sender];
-        _poolSize -= totalDeposit;
+        _poolSize = _poolSize - totalDeposit;
         strategy.withdraw(refundAmount);
         _stableToken.safeTransfer(msg.sender, refundAmount);
         emit WithdrawnEmergency(msg.sender, refundAmount);
@@ -270,7 +284,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 bonusReward;
         if (block.timestamp > _poolStartDate) {
             (, bonusReward) = _calculateRewards(_lender);
-            bonusReward += lenders[_lender].pendingBonusReward;
+            bonusReward = bonusReward + lenders[_lender].pendingBonusReward;
         }
         return bonusReward;
     }
@@ -282,7 +296,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 stableReward;
         if (block.timestamp > _poolStartDate) {
             (stableReward, ) = _calculateRewards(_lender);
-            stableReward += lenders[_lender].pendingStableReward;
+            stableReward = stableReward + lenders[_lender].pendingStableReward;
         }
         return stableReward;
     }
@@ -360,51 +374,16 @@ contract FixLender is IFixLender, AccessControl {
     function _calculateRewards(
         address _lender
     ) private view returns (uint256, uint256) {
+        Lender memory lenderData = lenders[_lender];
         uint256 endDate = block.timestamp > _poolEndDate
             ? _poolEndDate
             : block.timestamp;
-        uint256 diff = endDate - lenders[_lender].lastUpdateDate;
-        uint256 totalDeposit = lenders[_lender].totalDeposit;
+        uint256 diff = endDate - lenderData.lastUpdateDate;
+        uint256 totalDeposit = lenderData.totalDeposit;
         return (
-            _calculateStableReward(diff, totalDeposit),
-            _calculateBonusReward(diff, totalDeposit)
+            _calculateFormula(diff, totalDeposit, _stableApr),
+            _calculateFormula(diff, totalDeposit, _bonusRate)
         );
-    }
-
-    /**
-     * @dev Calculates the stable reward based on _stableApr for all lender deposits
-     * @dev Rewards are only applicable for the pool period duration
-     * @param _diff is duration of calculation
-     * @param _totalDeposit is the total amount of stable token deposited
-     */
-    function _calculateStableReward(
-        uint256 _diff,
-        uint256 _totalDeposit
-    ) private view returns (uint256) {
-        uint256 calculatedReward = _calculateFormula(
-            _totalDeposit,
-            _diff,
-            _stableApr
-        );
-        return calculatedReward;
-    }
-
-    /**
-     * @dev Calculates the bonus reward based on _bonusRate for all lender deposits
-     * @dev Rewards are only applicable for the pool period duration
-     * @param _diff is duration of calculation
-     * @param _totalDeposit is the total amount of stable token deposited
-     */
-    function _calculateBonusReward(
-        uint256 _diff,
-        uint256 _totalDeposit
-    ) private view returns (uint256) {
-        uint256 calculatedBonus = _calculateFormula(
-            _totalDeposit,
-            _diff,
-            _bonusRate
-        );
-        return calculatedBonus;
     }
 
     /**
