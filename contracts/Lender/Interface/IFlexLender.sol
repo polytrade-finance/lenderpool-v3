@@ -38,7 +38,7 @@ interface IFlexLender {
     event BaseDeposited(address indexed lender, uint256 amount);
 
     /**
-     * @notice Emits when new fund is deposited to the Lender Pool with locking period
+     * @notice Emits when a new fund is deposited to the Lender Pool with locking period
      * @param lender is the address of the `lender`
      * @param id is the deposit ID
      * @param amount is the stable tokens deposited by the lender
