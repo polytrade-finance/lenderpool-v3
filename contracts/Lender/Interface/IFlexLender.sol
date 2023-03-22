@@ -31,14 +31,14 @@ interface IFlexLender {
     error UnsupportedInterface();
 
     /**
-     * @notice Emits when new fund is deposited to the Lender Pool without locking period
+     * @notice Emits when a new fund is deposited to the Lender Pool without locking period
      * @param lender is the address of the `lender`
      * @param amount is the stable tokens deposited by the lender
      */
     event BaseDeposited(address indexed lender, uint256 amount);
 
     /**
-     * @notice Emits when new fund is deposited to the Lender Pool with locking period
+     * @notice Emits when a new fund is deposited to the Lender Pool with locking period
      * @param lender is the address of the `lender`
      * @param id is the deposit ID
      * @param amount is the stable tokens deposited by the lender
@@ -56,7 +56,7 @@ interface IFlexLender {
     );
 
     /**
-     * @notice Emits when deposited funds withdrawn from the Lender Pool
+     * @notice Emits when deposited funds are withdrawn from the Lender Pool
      * @param lender is the address of the `lender`
      * @param amount is the principal stable amount of deposit + stable Reward lender received based on Base APR
      * @param bonusReward is the remaining Bonus rewards lender received based on the Rate
@@ -68,7 +68,7 @@ interface IFlexLender {
     );
 
     /**
-     * @notice Emits when deposited funds withdrawn from the Lender Pool for specific deposit
+     * @notice Emits when deposited funds are withdrawn from the Lender Pool for specific deposit
      * @param lender is the address of the `lender`
      * @param id is the deposit ID
      * @param amount is the principal stable amount of deposit + stable Reward lender received based on APR
@@ -82,7 +82,7 @@ interface IFlexLender {
     );
 
     /**
-     * @notice Emits when lender claims Bonus rewards for specific deposit
+     * @notice Emits when lender claims Bonus rewards for a specific deposit
      * @param lender is the address of the 'lender'
      * @param id is the deposit ID
      * @param bonusReward is the accumulated Bonus rewards lender received based on the Rate
@@ -90,7 +90,7 @@ interface IFlexLender {
     event BonusClaimed(address indexed lender, uint256 id, uint256 bonusReward);
 
     /**
-     * @notice Emits when lender claims Bonus rewards from base deposit
+     * @notice Emits when lender claims Bonus rewards from a base deposit
      * @param lender is the address of the 'lender'
      * @param bonusReward is the accumulated Bonus rewards lender received based on the Base Rate
      */
@@ -104,11 +104,11 @@ interface IFlexLender {
     event AllBonusClaimed(address indexed lender, uint256 bonusReward);
 
     /**
-     * @notice Emits when a lender tries to withdraw from pool before pool end date
+     * @notice Emits when a lender tries to withdraw from pool before the pool's end date
      * @param lender is the address of the 'lender'
      * @param id is the deposit ID
-     * @param amount is the amount that withdrawn by lender
-     * @param bonusReward is the amount available bonus rewards that calims automatically
+     * @param amount is the amount that is withdrawn by lender
+     * @param bonusReward is the amount available bonus rewards that is claimed automatically
      */
     event WithdrawnEmergency(
         address indexed lender,
@@ -118,21 +118,21 @@ interface IFlexLender {
     );
 
     /**
-     * @notice Emits when a admin change the rate for emergency withdraw fee
+     * @notice Emits when an admin changes the rate for the emergency withdraw fee
      * @param oldRate is the old withdraw rate
      * @param newRate is the new withdraw rate
      */
     event WithdrawRateChanged(uint256 oldRate, uint256 newRate);
 
     /**
-     * @notice Emits when a admin change status of verification
+     * @notice Emits when an admin changes the status of verification
      * @param oldStatus is the old status for verification requirement
      * @param newStatus is the new status for verification requirement
      */
     event VerificationStatusChanged(bool oldStatus, bool newStatus);
 
     /**
-     * @notice Emits when new verification contract is used
+     * @notice Emits when a new verification contract is used
      * @dev Emitted when switchVerification function is called by owner
      * @param oldVerification is the old verification contract Address
      * @param newVerification is the new verification contract Address
@@ -173,10 +173,10 @@ interface IFlexLender {
     );
 
     /**
-     * @notice Emits when new apr and rate is set for base pool
+     * @notice Emits when a new APR and rate are set for a base pool
      * @dev Emitted when `changeBaseRates` function is called by admin
-     * @param oldStableApr is the old apr for calculating stable rewards
-     * @param newStableApr is the new apr for calculating stable rewards
+     * @param oldStableApr is the old APR for calculating stable rewards
+     * @param newStableApr is the new APR for calculating stable rewards
      * @param oldBonusRate is the old rate for calculating bonus rewards
      * @param newBonusRate is the new rate for calculating bonus rewards
      */
@@ -188,7 +188,7 @@ interface IFlexLender {
     );
 
     /**
-     * @notice Emits when new limit is set locking duration
+     * @notice Emits when a new limit is set for the locking duration
      * @dev Emitted when changeDurationLimit function is called by owner
      * @param minLimit is the minimum limit for locking period in days
      * @param maxLimit is the maximum limit for locking period in days
@@ -196,7 +196,7 @@ interface IFlexLender {
     event DurationLimitChanged(uint256 minLimit, uint256 maxLimit);
 
     /**
-     * @notice Emits when new limit is set for flexible lender pool
+     * @notice Emits when a new limit is set for flexible lender pool
      * @dev Emitted when changeMaxLimit function is called by owner
      * @param oldLimit is the old maximum limit for depositing
      * @param newLimit is the new maximum limit for depositing
@@ -235,7 +235,7 @@ interface IFlexLender {
      * @notice Claims the bonus rewards to the lender for all deposits
      * @dev `claimBonus` transfers all the accumulated bonus rewards to `msg.sender`
      * Requirements :
-     * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
+     * - `LenderPool` should have tokens more than or equal to lender's accumulated bonus rewards for that deposit
      * Emits {AllBonusClaimed} event
      */
     function claimAllBonuses() external;
@@ -244,7 +244,7 @@ interface IFlexLender {
      * @notice Claims the bonus rewards to the lender the deposit without locking period
      * @dev `claimBonus` transfers all the accumulated bonus rewards to `msg.sender`
      * Requirements :
-     * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
+     * - `LenderPool` should have tokens more than or equal to lender's accumulated bonus rewards for that deposit
      * Emits {BaseBonusClaimed} event
      */
     function claimBonus() external;
@@ -254,7 +254,7 @@ interface IFlexLender {
      * @dev `claimBonus` transfers all the accumulated bonus rewards to `msg.sender`
      * @param id Represents the id of deposit
      * Requirements :
-     * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
+     * - `LenderPool` should have tokens more than or equal to lender's accumulated bonus rewards for that deposit
      * Emits {BonusClaimed} event
      */
     function claimBonus(uint256 id) external;
@@ -263,8 +263,8 @@ interface IFlexLender {
      * @notice Withdraws principal deposited tokens + Stable rewards + remaining bonus rewards
      * for the deposit without locking period
      * Requirements:
-     * - `LenderPool` should have stable tokens more than or equal to lender stable rewards + principal amount
-     * - `LenderPool` should have bonus tokens more than or equal to lender accumulated bonus rewards
+     * - `LenderPool` should have stable tokens more than or equal to lender's stable rewards + principal amount
+     * - `LenderPool` should have bonus tokens more than or equal to lender's accumulated bonus rewards
      * Emits {BaseWithdrawn} event
      */
     function withdraw() external;
@@ -273,9 +273,9 @@ interface IFlexLender {
      * @notice Withdraws principal deposited tokens + Stable rewards + remaining bonus rewards for a specific deposit
      * @param id Represents the ID of deposit that lender tries to withdraw after locking period
      * Requirements:
-     * - `id` should represent a deposit that has been passed its lock period
-     * - `LenderPool` should have stable tokens more than or equal to lender stable rewards + principal amount
-     * - `LenderPool` should have tokens more than or equal to lender accumulated bonus rewards for that deposit
+     * - `id` should represent a deposit that has passed its lock period
+     * - `LenderPool` should have stable tokens more than or equal to lender's stable rewards + principal amount
+     * - `LenderPool` should have tokens more than or equal to lender's accumulated bonus rewards for that deposit
      * Emits {Withdrawn} event
      */
     function withdraw(uint256 id) external;
@@ -284,7 +284,7 @@ interface IFlexLender {
      * @notice Withdraws principal total deposit minus fee that is a percentage of total deposit for a specific deposit
      * @param id Represents the ID of deposit that lender tries to emergency withdraw before locking period
      * Requirements:
-     * - Should be called before locknig period ends
+     * - Should be called before locking period ends
      * - 'msg.sender' should have deposit with specific id
      * - Lender should have enough stable token to transfer
      * Emits {WithdrawnEmergency} event
@@ -310,7 +310,7 @@ interface IFlexLender {
     function switchRateBondingCurve(address newCurve) external;
 
     /**
-     * @dev Changes the Apr and Rate that calculates stable and bonus rewards
+     * @dev Changes the APR and Rate that calculates stable and bonus rewards
      * @dev Only affects the future deposits
      * @param newApr is the new apr percentage with 2 decimals
      * @param newRate is the new rate with 2 decimals
@@ -348,7 +348,7 @@ interface IFlexLender {
     function switchVerification(address newVerification) external;
 
     /**
-     * @dev Changes the Strategy contract that has been used for using funds in defi protocols
+     * @dev Changes the Strategy contract used for managing funds in defi protocols
      * @param newStrategy is the address of the new strategy contract
      * Emits {StrategySwitched} event
      */
@@ -377,7 +377,7 @@ interface IFlexLender {
     ) external view returns (uint256);
 
     /**
-     * @dev returns all the available bonus rewards to claim for a specific lender for deposit without locking
+     * @dev returns all the available bonus rewards to claim for a specific lender for a deposit without locking
      * @param lender Represents the address of lender
      */
     function getBonusRewards(address lender) external view returns (uint256);
@@ -409,7 +409,7 @@ interface IFlexLender {
     ) external view returns (uint256);
 
     /**
-     * @dev returns the APR for a specific deposit and lender without decimals in percenrtage
+     * @dev returns the APR for a specific deposit and lender without decimals in percentage
      * @param lender Represents the address of lender
      * @param id Represents the id of a deposit
      */
@@ -426,7 +426,7 @@ interface IFlexLender {
     ) external view returns (uint256);
 
     /**
-     * @dev returns the base APR without decimals in percenrtage
+     * @dev returns the base APR without decimals in percentage
      */
     function getBaseApr() external view returns (uint256);
 
@@ -461,12 +461,12 @@ interface IFlexLender {
     function getPoolSize() external view returns (uint256);
 
     /**
-     * @dev returns the pool maximum size that after reaching this limit users can not deposit
+     * @dev returns the pool maximum size that once reached lender can not deposit
      */
     function getMaxPoolSize() external view returns (uint256);
 
     /**
-     * @dev returns the require verification status of lender pool
+     * @dev returns the required verification status of lender pool
      */
     function getVerificationStatus() external view returns (bool);
 
