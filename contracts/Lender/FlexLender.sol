@@ -1,5 +1,5 @@
 /// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -110,7 +110,6 @@ contract FlexLender is IFlexLender, AccessControl {
     function switchVerification(
         address newVerification
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newVerification != address(0), "Invalid Verification Address");
         if (!newVerification.supportsInterface(_VERIFICATION_INTERFACE_ID))
             revert UnsupportedInterface();
         address oldVerification = address(verification);
@@ -124,7 +123,6 @@ contract FlexLender is IFlexLender, AccessControl {
     function switchStrategy(
         address newStrategy
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newStrategy != address(0), "Invalid Strategy Address");
         if (!newStrategy.supportsInterface(_STRATEGY_INTERFACE_ID))
             revert UnsupportedInterface();
         address oldStrategy = address(strategy);
@@ -145,8 +143,8 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 baseStableApr,
         uint256 baseBonusRate
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(baseStableApr < 10001, "Invalid Stable Apr");
-        require(baseBonusRate < 10001, "Invalid Bonus Rate");
+        require(baseStableApr < 10_001, "Invalid Stable Apr");
+        require(baseBonusRate < 10_001, "Invalid Bonus Rate");
         RateInfo memory roundData = rateRounds[_currentRateRound];
         uint256 newStableApr = baseStableApr / 1E2;
         uint256 newBonusRate = baseBonusRate *
@@ -173,7 +171,6 @@ contract FlexLender is IFlexLender, AccessControl {
     function switchAprBondingCurve(
         address newCurve
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newCurve != address(0), "Invalid Curve Address");
         if (!newCurve.supportsInterface(_CURVE_INTERFACE_ID))
             revert UnsupportedInterface();
         address oldCurve = address(_aprBondingCurve);
@@ -187,7 +184,6 @@ contract FlexLender is IFlexLender, AccessControl {
     function switchRateBondingCurve(
         address newCurve
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newCurve != address(0), "Invalid Curve Address");
         if (!newCurve.supportsInterface(_CURVE_INTERFACE_ID))
             revert UnsupportedInterface();
         address oldCurve = address(_rateBondingCurve);
@@ -202,9 +198,9 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 minLimit,
         uint256 maxLimit
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(maxLimit > minLimit, "Max. Limit is not > Min. Limit");
         require(maxLimit < 366, "Max. Limit should be <= 365 days");
         require(minLimit > 89, "Min. Limit should be >= 90 days");
+        require(maxLimit > minLimit, "Max. Limit is not > Min. Limit");
         _minLimit = minLimit;
         _maxLimit = maxLimit;
         emit DurationLimitChanged(minLimit, maxLimit);
@@ -248,16 +244,16 @@ contract FlexLender is IFlexLender, AccessControl {
         require(address(strategy) != address(0), "There is no Strategy");
         require(amount >= _minDeposit, "Amount is less than Min. Deposit");
         require(
-            _poolMaxLimit >= _poolSize + amount,
-            "Pool has reached its limit"
-        );
-        require(
             lockingDuration >= _minLimit,
             "Locking Duration is < Min. Limit"
         );
         require(
             lockingDuration <= _maxLimit,
             "Locking Duration is > Max. Limit"
+        );
+        require(
+            _poolMaxLimit >= _poolSize + amount,
+            "Pool has reached its limit"
         );
         Lender storage lenderData = lenders[msg.sender];
         uint256 apr = _aprBondingCurve.getRate(lockingDuration);
@@ -390,10 +386,9 @@ contract FlexLender is IFlexLender, AccessControl {
             lenders[msg.sender].deposits[id].amount != 0,
             "You have nothing with this ID"
         );
-        uint256 depositEndDate = depositData.startDate +
-            depositData.lockingDuration;
         require(
-            block.timestamp < depositEndDate,
+            block.timestamp <
+                depositData.startDate + depositData.lockingDuration,
             "You can not emergency withdraw"
         );
         uint256 depositedAmount = depositData.amount;
@@ -415,7 +410,7 @@ contract FlexLender is IFlexLender, AccessControl {
     function setWithdrawRate(
         uint256 newRate
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newRate < 10000, "Rate can not be more than 100%");
+        require(newRate < 10_000, "Rate can not be more than 100%");
         uint256 oldRate = _withdrawPenaltyPercent;
         _withdrawPenaltyPercent = newRate;
         emit WithdrawRateChanged(oldRate, newRate);

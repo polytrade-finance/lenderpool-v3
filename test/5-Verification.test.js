@@ -92,10 +92,10 @@ describe("Verification", function () {
   it("Should fail if verification address is zero", async () => {
     await expect(
       lenderContract.switchVerification(ZeroAddress)
-    ).to.be.revertedWith("Invalid Verification Address");
+    ).to.be.reverted;
     await expect(
       flexLenderContract.switchVerification(ZeroAddress)
-    ).to.be.revertedWith("Invalid Verification Address");
+    ).to.be.reverted;
   });
 
   it("Should fail to change verification without admin access", async function () {

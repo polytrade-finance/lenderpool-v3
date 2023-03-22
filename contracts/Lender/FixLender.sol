@@ -1,5 +1,5 @@
 /// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -88,7 +88,7 @@ contract FixLender is IFixLender, AccessControl {
         require(depositEndDate_ > block.timestamp, "Invalid Deposit End Date");
         require(poolPeriod_ != 0, "Invalid Pool Duration");
         require(poolMaxLimit_ > minDeposit_, "Invalid Pool Max. Limit");
-        require(bonusRate_ < 10001, "Invalid Bonus Rate");
+        require(bonusRate_ < 10_001, "Invalid Bonus Rate");
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
         _stableToken = IToken(stableToken_);
         _bonusToken = IToken(bonusToken_);
@@ -114,7 +114,6 @@ contract FixLender is IFixLender, AccessControl {
     function switchVerification(
         address newVerification
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newVerification != address(0), "Invalid Verification Address");
         if (!newVerification.supportsInterface(_VERIFICATION_INTERFACE_ID))
             revert UnsupportedInterface();
         address oldVerification = address(verification);
@@ -132,7 +131,6 @@ contract FixLender is IFixLender, AccessControl {
     function switchStrategy(
         address newStrategy
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newStrategy != address(0), "Invalid Strategy Address");
         if (!newStrategy.supportsInterface(_STRATEGY_INTERFACE_ID))
             revert UnsupportedInterface();
         address oldStrategy = address(strategy);
@@ -151,11 +149,11 @@ contract FixLender is IFixLender, AccessControl {
      */
     function deposit(uint256 amount) external isValid {
         require(address(strategy) != address(0), "There is no Strategy");
+        require(amount >= _minDeposit, "Amount is less than Min. Deposit");
         require(
             _poolMaxLimit >= _poolSize + amount,
             "Pool has reached its limit"
         );
-        require(amount >= _minDeposit, "Amount is less than Min. Deposit");
         require(
             block.timestamp < _depositEndDate,
             "Deposit End Date has passed"
@@ -264,7 +262,7 @@ contract FixLender is IFixLender, AccessControl {
     function setWithdrawRate(
         uint256 newRate
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        require(newRate < 10000, "Rate can not be more than 100%");
+        require(newRate < 10_000, "Rate can not be more than 100%");
         uint256 oldRate = _withdrawPenaltyPercent;
         _withdrawPenaltyPercent = newRate;
         emit WithdrawRateChanged(oldRate, newRate);
