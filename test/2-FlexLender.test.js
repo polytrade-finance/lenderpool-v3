@@ -235,15 +235,13 @@ describe("Flexible Lender Pool", function () {
     });
 
     it("Should fail to set zero address for apr bonding curve", async function () {
-      await expect(
-        lenderContract.switchAprBondingCurve(ZeroAddress)
-      ).to.be.reverted;
+      await expect(lenderContract.switchAprBondingCurve(ZeroAddress)).to.be
+        .reverted;
     });
 
     it("Should fail to set zero address for rate bonding curve", async function () {
-      await expect(
-        lenderContract.switchRateBondingCurve(ZeroAddress)
-      ).to.be.reverted;
+      await expect(lenderContract.switchRateBondingCurve(ZeroAddress)).to.be
+        .reverted;
     });
 
     it("Should fail to set apr address without curve interface support", async function () {

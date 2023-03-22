@@ -174,9 +174,7 @@ describe("Strategy", function () {
 
   it("Should fail to switch Strategy contract to invalid address", async function () {
     await expect(lenderContract.switchStrategy(ZeroAddress)).to.be.reverted;
-    await expect(
-      flexLenderContract.switchStrategy(ZeroAddress)
-    ).to.be.reverted;
+    await expect(flexLenderContract.switchStrategy(ZeroAddress)).to.be.reverted;
   });
 
   it("Should switch Strategy Contract and transfer funds from old strategy to new one for fix lender", async function () {
