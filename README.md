@@ -1,75 +1,69 @@
-## Scripts
+# LenderPool V3
 
-This repository includes the following scripts in the `package.json` file:
+![solidity](https://img.shields.io/badge/Solidity-e6e6e6?style=for-the-badge&logo=solidity&logoColor=black) ![openzeppelin](https://img.shields.io/badge/OpenZeppelin-4E5EE4?logo=OpenZeppelin&logoColor=fff&style=for-the-badge)
 
-### Test
+This repository contains the smart contracts for LenderPool V3, see [documentation](https://polytrade.gitbook.io/lender-v3/) for details.
 
-`npm run test`
+Lender Pool Version 3 represents a revamped version of the current LenderPool V2 architecture that streamlines and automates the pool dynamics, providing lenders with greater control and flexibility. The cornerstone of LPV3 is the Lender Pool factory, which generates pool instances that meet various needs and specifications.
 
-This command runs the test suite for the contract using the Hardhat testing framework. It will execute the command `npx hardhat test`, which will run all the tests in the project. The tests are used to check that the contract behaves as expected and to ensure that any changes made to the contract don't break existing functionality.
+## 💸 LenderPool Types
 
-### Test with coverage
+### Fixed Pool
 
-`npm run test:coverage`
+Features of a fixed pool include:
 
-This command runs the test suite and generates a coverage report for the contract. It will execute the command `npx hardhat coverage`, which will run all the tests in the project and also generate a coverage report. A coverage report shows how much of the contract's code is being executed by the test suite.
+- **Locking Period:** a timeframe for which deposits are held in a pool until their end date.
+- **Deposit Window:** deposits are only allowed within a specified timeframe, after which the pool will be closed to any additional funding.
+- **Fixed APR and Bonus Rate:** non-variable annual percentage rate (APR) and bonus rate set by the pool administrator throughout the deposit period.
 
-### Compile
+### Flexible Pool
 
-```
-npm run compile
-```
+Features of a flexible pool include:
 
-This command compiles the contract using the Hardhat compiler. It will execute the command `npx hardhat compile`, which will compile the contract code, and generate the bytecode and ABI needed to deploy the contract on the Ethereum blockchain.
+- **May not Require a Locking Period:** depending on the pool type, flexible pools may not require lenders to set a locking period for their deposits.
+- **No Deposit Window:** flexible pools do not have any restrictions on the timeframe within which lenders can make deposits.
+- **Dynamic APR and Bonus Rate:** variable annual percentage rate (APR) and bonus rate based on a bonding curve model.
 
-### Lint JavaScript
+## 📝 Contracts
 
-```
-npm run lint:js
-```
-
-This command runs the ESLint linter on all JavaScript files in the project. It will execute the command `npx eslint '**/*.js'`, which will check all JavaScript files in the project against a set of linting rules and report any errors or warnings.
-
-### Lint Javascript and fix issues
-
-```
-npm run lint:js-fix
-```
-
-This command runs the ESLint linter on all JavaScript files in the project and automatically fix any issues it finds.
-
-### Lint Solidity
-
-```
-npm run lint:sol
-```
-
-This command runs the Prettier and Solhint linters on all the Solidity files in the project. It will execute the command `npx prettier '**/*.{json,sol,md}' --check && npx solhint 'contracts/**/*.sol'`, which will check all the solidity files in the project against a set of linting rules and report any errors or warnings.
-
-### Lint Solidity and fix issues
-
-```
-npm run lint:sol-fix
-```
-
-This command runs the Prettier and Solhint linters on all the Solidity files in the project and automatically fix any issues it finds.
-
-### Lint all
-
-```
-npm run lint
+```bash
+Contracts
+├─ BondingCurve
+│  ├─ Interface
+│  │  └─ IBondingCurve.sol
+│  └─ BondingCurve.sol
+├─ Lender
+│  ├─ Interface
+│  │  ├─ IFixLender.sol
+│  │  └─ IFlexLender.sol
+│  ├─ FixLender.sol
+│  └─ FlexLender.sol
+├─ Strategy
+│  ├─ Interface
+│  │  ├─ IAaveLendingPool.sol
+│  │  └─ IStrategy.sol
+│  └─ Strategy.sol
+├─ Token
+│  ├─ Interface
+│  │  └─ IToken.sol
+│  └─ Token.sol
+└─ Verification
+   ├─ Interface
+   │  ├─ IPolytradeProxy.sol
+   │  └─ IVerification.sol
+   ├─ Mock
+   │  └─ PolytradeProxy.sol
+   └─ Verification.sol
 ```
 
-This command runs both JavaScript and Solidity linters in the project.
+## 🛠️ Install Dependencies
 
-### Lint all and fix issues
-
+```bash
+npm install
+npx hardhat compile
+npx hardhat test
 ```
-npm run lint:fix
-```
 
-This command runs both JavaScript and Solidity linters in the project and automatically fix any issues it finds.
+## ⚖️ License
 
-## Contribution
-
-We welcome contributions to this repository. If you find any issues or have suggestions for improvements, please open an issue or submit a pull request.
+All files in `/contracts` are licensed under MIT as indicated in their SPDX header.
