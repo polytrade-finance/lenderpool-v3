@@ -11,6 +11,7 @@ Lender Pool Version 3 represents a revamped version of the current LenderPool V2
 ### Fixed Pool
 
 Features of a fixed pool include:
+
 - **Locking Period:** a timeframe for which deposits are held in a pool until their end date.
 - **Deposit Window:** deposits are only allowed within a specified timeframe, after which the pool will be closed to any additional funding.
 - **Fixed APR and Bonus Rate:** non-variable annual percentage rate (APR) and bonus rate set by the pool administrator throughout the deposit period.
@@ -18,6 +19,7 @@ Features of a fixed pool include:
 ### Flexible Pool
 
 Features of a flexible pool include:
+
 - **May not Require a Locking Period:** depending on the pool type, flexible pools may not require lenders to set a locking period for their deposits.
 - **No Deposit Window:** flexible pools do not have any restrictions on the timeframe within which lenders can make deposits.
 - **Dynamic APR and Bonus Rate:** variable annual percentage rate (APR) and bonus rate based on a bonding curve model.
