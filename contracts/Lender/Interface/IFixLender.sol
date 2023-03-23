@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.17;
+pragma solidity 0.8.17;
 
 /**
  * @title IFixLender
@@ -12,6 +12,8 @@ interface IFixLender {
         uint256 pendingBonusReward;
         uint256 lastUpdateDate;
     }
+
+    error UnsupportedInterface();
 
     /**
      * @notice Emits when new fund is deposited to the Lender Pool
@@ -48,7 +50,7 @@ interface IFixLender {
     event WithdrawnEmergency(address indexed lender, uint256 amount);
 
     /**
-     * @notice Emits when a admin change the rate for emergency withdraw fee
+     * @notice Emits when an admin changes the rate for the emergency withdraw fee
      * @param oldRate is the old withdraw rate
      * @param newRate is the new withdraw rate
      */
@@ -129,7 +131,7 @@ interface IFixLender {
     function switchVerification(address _newVerification) external;
 
     /**
-     * @dev Changes the Strategy contract that has been used for using funds in defi protocols
+     * @dev Changes the Strategy contract used for managing funds in defi protocols
      * @param _newStrategy is the address of the new strategy contract
      * Emits {StrategySwitched} event
      */
@@ -169,12 +171,12 @@ interface IFixLender {
     function getLockingDuration() external view returns (uint256);
 
     /**
-     * @dev returns pool start date that after that reward calculation begins
+     * @dev returns pool start date for which the reward calculation begins
      */
     function getPoolStartDate() external view returns (uint256);
 
     /**
-     * @dev returns the end deposit date that after that users can not deposit
+     * @dev returns the end deposit date after which users can not deposit
      */
     function getDepositEndDate() external view returns (uint256);
 
@@ -184,12 +186,12 @@ interface IFixLender {
     function getPoolSize() external view returns (uint256);
 
     /**
-     * @dev returns the pool maximum size that after reaching this limit users can not deposit
+     * @dev returns the pool maximum size that once reached lender can not deposit
      */
     function getMaxPoolSize() external view returns (uint256);
 
     /**
-     * @dev returns the require verification status of lender pool
+     * @dev returns the required verification status of lender pool
      */
     function getVerificationStatus() external view returns (bool);
 }

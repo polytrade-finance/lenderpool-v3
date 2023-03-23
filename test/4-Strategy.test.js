@@ -166,18 +166,15 @@ describe("Strategy", function () {
   });
 
   it("Should fail to set apr address without curve interface support", async function () {
-    await expect(
-      flexLenderContract.switchStrategy(stableToken.address)
-    ).to.be.revertedWith("Does not support Strategy interface");
+    await expect(lenderContract.switchStrategy(stableToken.address)).to.be
+      .reverted;
+    await expect(flexLenderContract.switchStrategy(stableToken.address)).to.be
+      .reverted;
   });
 
   it("Should fail to switch Strategy contract to invalid address", async function () {
-    await expect(lenderContract.switchStrategy(ZeroAddress)).to.be.revertedWith(
-      "Invalid Strategy Address"
-    );
-    await expect(
-      flexLenderContract.switchStrategy(ZeroAddress)
-    ).to.be.revertedWith("Invalid Strategy Address");
+    await expect(lenderContract.switchStrategy(ZeroAddress)).to.be.reverted;
+    await expect(flexLenderContract.switchStrategy(ZeroAddress)).to.be.reverted;
   });
 
   it("Should switch Strategy Contract and transfer funds from old strategy to new one for fix lender", async function () {

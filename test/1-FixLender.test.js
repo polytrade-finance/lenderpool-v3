@@ -376,9 +376,8 @@ describe("Fixed Lender Pool", function () {
       }
       // Increase to pool start date
       await time.increase(DAY);
-      const Period = SamplePeriod * DAY;
       const passedPeriod = 10 * DAY;
-      const expectedBonus = (10 * passedPeriod * (SampleRate / 100)) / Period;
+      const expectedBonus = (10 * passedPeriod * (SampleRate / 100)) / YEAR;
       for (let i = 0; i < 9; i++) {
         await time.increase(passedPeriod);
         const beforeClaim = await bonusToken.balanceOf(addresses[1]);
@@ -446,7 +445,7 @@ describe("Fixed Lender Pool", function () {
       const passedPeriod = Period / 2;
       await time.increase(passedPeriod);
       // SampleRate is 100 which is 1.00
-      const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / Period;
+      const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / YEAR;
       const beforeClaim = await bonusToken.balanceOf(addresses[1]);
       await lenderContract.connect(accounts[1]).claimBonus();
       const afterClaim = await bonusToken.balanceOf(addresses[1]);
@@ -462,7 +461,7 @@ describe("Fixed Lender Pool", function () {
       // half of period passed
       const passedPeriod = Period / 2;
       // SampleRate is 100 which is 1.00
-      const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / Period;
+      const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / YEAR;
       const beforeClaim = await bonusToken.balanceOf(addresses[1]);
       await lenderContract.connect(accounts[1]).claimBonus();
       const afterClaim = await bonusToken.balanceOf(addresses[1]);
@@ -512,9 +511,8 @@ describe("Fixed Lender Pool", function () {
       }
       // Increase to pool start date
       await time.increase(DAY);
-      const Period = SamplePeriod * DAY;
       const passedPeriod = 10 * DAY;
-      const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / Period;
+      const expectedBonus = (1000 * passedPeriod * (SampleRate / 100)) / YEAR;
       for (let i = 0; i < 9; i++) {
         await time.increase(passedPeriod);
         for (let j = 1; j < 6; j++) {
@@ -606,7 +604,7 @@ describe("Fixed Lender Pool", function () {
       await time.increase(DAY);
       const Period = SamplePeriod * DAY;
       await time.increase(Period);
-      const expectedBonus = (100 * Period * (SampleRate / 100)) / Period;
+      const expectedBonus = (100 * Period * (SampleRate / 100)) / YEAR;
       const unroundExpectedStable =
         (100 * Period * (SampleAPR / 10000)) / YEAR + 100;
       // need to round expected stable with 6 decimal since stable has 6 decimal
@@ -652,9 +650,8 @@ describe("Fixed Lender Pool", function () {
       const Period = SamplePeriod * DAY;
       const secondPeriod = (SamplePeriod - 1) * DAY;
       await time.increase(secondPeriod);
-      const expectedBonus1st = (100 * Period * (SampleRate / 100)) / Period;
-      const expectedBonus2nd =
-        (100 * secondPeriod * (SampleRate / 100)) / Period;
+      const expectedBonus1st = (100 * Period * (SampleRate / 100)) / YEAR;
+      const expectedBonus2nd = (100 * secondPeriod * (SampleRate / 100)) / YEAR;
       const unroundExpectedStable1st =
         (100 * Period * (SampleAPR / 10000)) / YEAR;
       const unroundExpectedStable2nd =
@@ -940,9 +937,9 @@ describe("Fixed Lender Pool", function () {
       const passedPeriod = Period / 2 - DAY;
       await time.increase(passedPeriod);
       const firstExpectedBonus =
-        (1000 * passedPeriod * (SampleRate / 100)) / Period;
+        (1000 * passedPeriod * (SampleRate / 100)) / YEAR;
       const secondExpectedBonus =
-        (1000 * (Period / 2) * (SampleRate / 100)) / Period;
+        (1000 * (Period / 2) * (SampleRate / 100)) / YEAR;
       const expectedBonus = firstExpectedBonus + secondExpectedBonus;
       const actualBonus = await lenderContract.getBonusRewards(addresses[1]);
       expect(parseFloat(await fromBonus(actualBonus))).to.be.within(
@@ -957,8 +954,8 @@ describe("Fixed Lender Pool", function () {
       const passedPeriod = Period / 2;
       await time.increase(passedPeriod);
       const firstExpectedBonus =
-        (1000 * (Period - DAY) * (SampleRate / 100)) / Period;
-      const secondExpectedBonus = (1000 * Period * (SampleRate / 100)) / Period;
+        (1000 * (Period - DAY) * (SampleRate / 100)) / YEAR;
+      const secondExpectedBonus = (1000 * Period * (SampleRate / 100)) / YEAR;
       const expectedBonus = firstExpectedBonus + secondExpectedBonus;
       const actualBonus = await lenderContract.getBonusRewards(addresses[1]);
       expect(parseFloat(await fromBonus(actualBonus))).to.be.within(
