@@ -6,6 +6,22 @@ This repository contains the smart contracts for LenderPool V3, see [documentati
 
 Lender Pool Version 3 represents a revamped version of the current LenderPool V2 architecture that streamlines and automates the pool dynamics, providing lenders with greater control and flexibility. The cornerstone of LPV3 is the Lender Pool factory, which generates pool instances that meet various needs and specifications.
 
+## 💸 LenderPool Types
+
+### Fixed Pool
+
+Features of a fixed pool include:
+- **Locking Period:** a timeframe for which deposits are held in a pool until their end date.
+- **Deposit Window:** deposits are only allowed within a specified timeframe, after which the pool will be closed to any additional funding.
+- **Fixed APR and Bonus Rate:** non-variable annual percentage rate (APR) and bonus rate set by the pool administrator throughout the deposit period.
+
+### Flexible Pool
+
+Features of a flexible pool include:
+- **May not Require a Locking Period:** depending on the pool type, flexible pools may not require lenders to set a locking period for their deposits.
+- **No Deposit Window:** flexible pools do not have any restrictions on the timeframe within which lenders can make deposits.
+- **Dynamic APR and Bonus Rate:** variable annual percentage rate (APR) and bonus rate based on a bonding curve model.
+
 ## 📝 Contracts
 
 ```bash
