@@ -20,11 +20,11 @@ Features of a fixed pool include:
 
 Features of a flexible pool include:
 
-- **Locking Period** 
-  - Base pool: 
+- **Locking Period**
+  - Base pool:
     - No locking period
     - Lenders can withdraw their funds once the pool reaches its end date regardless of the time they made the deposit
-  - Dynamic pool: 
+  - Dynamic pool:
     - Locking period is optional
     - If a lender decides to set a locking period for their deposit, they can select a duration that has a min of 3 months and a max of 12 months, and the rewards are calculated based on the duration and the bonding curve model
 - **No Deposit Window:** flexible pools do not have any restrictions on the timeframe within which lenders can make deposits.
