@@ -1364,6 +1364,24 @@ describe("Flexible Lender Pool", function () {
       ).to.be.equal(false);
     });
 
+    it("Should get minimum deposit amount", async function () {
+      expect(
+        await lenderContract.getMinDeposit()
+      ).to.be.equal(MinDeposit);
+    });
+
+    it("Should get stable token address", async function () {
+      expect(
+        await lenderContract.stableToken()
+      ).to.be.equal(USDCAddress);
+    });
+
+    it("Should get minimum deposit amount", async function () {
+      expect(
+        await lenderContract.bonusToken()
+      ).to.be.equal(bonusAddress);
+    });
+
     it("Should get Base Apr", async function () {
       expect(
         await lenderContract.connect(accounts[2]).getBaseApr()

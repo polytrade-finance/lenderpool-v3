@@ -883,6 +883,24 @@ describe("Fixed Lender Pool", function () {
       ).to.be.equal(false);
     });
 
+    it("Should get minimum deposit amount", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).getMinDeposit()
+      ).to.be.equal(MinDeposit);
+    });
+
+    it("Should get stable token address", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).stableToken()
+      ).to.be.equal(USDCAddress);
+    });
+
+    it("Should get minimum deposit amount", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).bonusToken()
+      ).to.be.equal(bonusAddress);
+    });
+
     it("Should get Locking Duration of pool", async function () {
       const lockingDuration = SamplePeriod;
       expect(

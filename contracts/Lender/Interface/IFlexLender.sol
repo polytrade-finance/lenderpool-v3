@@ -466,6 +466,21 @@ interface IFlexLender {
     function getMaxPoolSize() external view returns (uint256);
 
     /**
+     * @dev returns the minimum stable tokens required for depositing
+     */
+    function getMinDeposit() external view returns (uint256);
+
+    /**
+     * @dev returns the address of Stable Token
+     */
+    function stableToken() external view returns (address);
+
+    /**
+     * @dev returns the address of Bonus Token
+     */
+    function bonusToken() external view returns (address);
+
+    /**
      * @dev returns the required verification status of lender pool
      */
     function getVerificationStatus() external view returns (bool);

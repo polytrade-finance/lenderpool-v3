@@ -349,6 +349,27 @@ contract FixLender is IFixLender, AccessControl {
     }
 
     /**
+     * @dev See {IFixLender-getMinDeposit}.
+     */
+    function getMinDeposit() external view returns (uint256) {
+        return _minDeposit;
+    }
+
+    /**
+     * @dev See {IFixLender-stableToken}.
+     */
+    function stableToken() external view returns (address) {
+        return address(_stableToken);
+    }
+
+    /**
+     * @dev See {IFixLender-bonusToken}.
+     */
+    function bonusToken() external view returns (address) {
+        return address(_bonusToken);
+    }
+
+    /**
      * @dev See {IFixLender-getVerificationStatus}.
      */
     function getVerificationStatus() external view returns (bool) {
