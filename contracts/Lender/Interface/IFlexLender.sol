@@ -151,6 +151,13 @@ interface IFlexLender {
     event StrategySwitched(address oldStrategy, address newStrategy);
 
     /**
+     * @notice Emitted when penalty fees is withdrawn
+     * @dev Emitted when withdrawFees function is called by owner
+     * @param amount is the total amount of accumulated emergency penalty withdraw fees
+     */
+    event PenaltyFeeWithdrawn(uint256 amount);
+
+    /**
      * @notice Emitted when APR bonding curve is switched
      * @dev Emitted when switchAprBondingCurve function is called by owner
      * @param oldBondingCurve is the address of the old staking strategy
@@ -355,6 +362,12 @@ interface IFlexLender {
     function switchStrategy(address newStrategy) external;
 
     /**
+     * @dev Withdraws accumulated penalty emergency withdraw fees to owner
+     * Emits {PenaltyFeeWithdrawn} event
+     */
+    function withdrawFees() external;
+
+    /**
      * @dev returns the all deposited amount of a specific lender
      * @param lender Represents the address of lender
      */
@@ -469,6 +482,16 @@ interface IFlexLender {
      * @dev returns the minimum stable tokens required for depositing
      */
     function getMinDeposit() external view returns (uint256);
+
+    /**
+     * @dev returns accumulated emergency penalty withdraw fees
+     */
+    function getTotalPenaltyFee() external view returns (uint256);
+
+    /**
+     * @dev returns emergency withdraw penalty percentage with 2 decimals
+     */
+    function getWithdrawPenaltyPercent() external view returns (uint256);
 
     /**
      * @dev returns the address of Stable Token

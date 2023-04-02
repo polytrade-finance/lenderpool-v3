@@ -46,10 +46,18 @@ contract Strategy is IStrategy, AccessControl {
      * @dev can be called by only lender pool
      * @param amount, total amount accepted from user and transferred to defi protocol
      * Emits {Withdrawn} event
+     * @return The final amount withdrawn
      */
-    function withdraw(uint256 amount) external onlyRole(LENDER_POOL) {
-        aave.withdraw(address(stable), amount, msg.sender);
-        emit Withdrawn(amount);
+    function withdraw(
+        uint256 amount
+    ) external onlyRole(LENDER_POOL) returns (uint256) {
+        uint256 finalAmount = aave.withdraw(
+            address(stable),
+            amount,
+            msg.sender
+        );
+        emit Withdrawn(finalAmount);
+        return finalAmount;
     }
 
     /**

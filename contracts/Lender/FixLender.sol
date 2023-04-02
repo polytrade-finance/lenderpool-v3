@@ -23,6 +23,7 @@ contract FixLender is IFixLender, AccessControl {
     mapping(address => Lender) public lenders;
 
     uint256 private _poolSize;
+    uint256 private _totalWithdrawFee;
     uint256 private _withdrawPenaltyPercent;
     uint256 private constant _YEAR = 365 days;
     uint256 private immutable _stableApr;
@@ -103,6 +104,17 @@ contract FixLender is IFixLender, AccessControl {
         _poolMaxLimit = poolMaxLimit_;
         _verificationStatus = verification_;
         _poolEndDate = _poolPeriod + _poolStartDate;
+    }
+
+    /**
+     * @dev See {IFixLender-withdrawFees}.
+     */
+    function withdrawFees() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_totalWithdrawFee != 0, "Nothing to withdraw");
+        uint256 amount = _totalWithdrawFee;
+        _totalWithdrawFee = 0;
+        _stableToken.safeTransfer(msg.sender, amount);
+        emit PenaltyFeeWithdrawn(amount);
     }
 
     /**
@@ -251,7 +263,10 @@ contract FixLender is IFixLender, AccessControl {
         uint256 refundAmount = totalDeposit - withdrawFee;
         delete lenders[msg.sender];
         _poolSize = _poolSize - totalDeposit;
-        strategy.withdraw(refundAmount);
+        _totalWithdrawFee =
+            _totalWithdrawFee +
+            strategy.withdraw(totalDeposit) -
+            refundAmount;
         _stableToken.safeTransfer(msg.sender, refundAmount);
         emit WithdrawnEmergency(msg.sender, refundAmount);
     }
@@ -353,6 +368,20 @@ contract FixLender is IFixLender, AccessControl {
      */
     function getMinDeposit() external view returns (uint256) {
         return _minDeposit;
+    }
+
+    /**
+     * @dev See {IFixLender-getTotalPenaltyFee}.
+     */
+    function getTotalPenaltyFee() external view returns (uint256) {
+        return _totalWithdrawFee;
+    }
+
+    /**
+     * @dev See {IFixLender-getWithdrawPenaltyPercent}.
+     */
+    function getWithdrawPenaltyPercent() external view returns (uint256) {
+        return _withdrawPenaltyPercent;
     }
 
     /**

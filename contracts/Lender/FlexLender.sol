@@ -24,6 +24,7 @@ contract FlexLender is IFlexLender, AccessControl {
     mapping(uint256 => RateInfo) public rateRounds;
 
     uint256 private _poolSize;
+    uint256 private _totalWithdrawFee;
     uint256 private _withdrawPenaltyPercent;
     uint256 private _currentRateRound;
     uint256 private _minLimit;
@@ -81,6 +82,17 @@ contract FlexLender is IFlexLender, AccessControl {
         _bonusDecimal = _bonusToken.decimals();
         _minDeposit = minDeposit_;
         _poolMaxLimit = poolMaxLimit_;
+    }
+
+    /**
+     * @dev See {IFlexLender-withdrawFees}.
+     */
+    function withdrawFees() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_totalWithdrawFee != 0, "Nothing to withdraw");
+        uint256 amount = _totalWithdrawFee;
+        _totalWithdrawFee = 0;
+        _stableToken.safeTransfer(msg.sender, amount);
+        emit PenaltyFeeWithdrawn(amount);
     }
 
     /**
@@ -397,15 +409,18 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 bonusReward = _claimBonus(id);
         delete lenders[msg.sender].deposits[id];
         _poolSize = _poolSize - depositedAmount;
+        _totalWithdrawFee =
+            _totalWithdrawFee +
+            strategy.withdraw(depositedAmount) -
+            refundAmount;
         _updateId(msg.sender);
-        strategy.withdraw(depositedAmount);
         _stableToken.safeTransfer(msg.sender, refundAmount);
         _bonusToken.safeTransfer(msg.sender, bonusReward);
         emit WithdrawnEmergency(msg.sender, id, refundAmount, bonusReward);
     }
 
     /**
-     * @dev See {IFixLender-setWithdrawRate}.
+     * @dev See {IFlexLender-setWithdrawRate}.
      */
     function setWithdrawRate(
         uint256 newRate
@@ -417,21 +432,21 @@ contract FlexLender is IFlexLender, AccessControl {
     }
 
     /**
-     * @dev See {IFixLender-getTotalDeposit}.
+     * @dev See {IFlexLender-getTotalDeposit}.
      */
     function getTotalDeposit(address lender) external view returns (uint256) {
         return _getTotalDeposit(lender);
     }
 
     /**
-     * @dev See {IFixLender-getDeposit}.
+     * @dev See {IFlexLender-getDeposit}.
      */
     function getDeposit(address lender) external view returns (uint256) {
         return lenders[lender].amount;
     }
 
     /**
-     * @dev See {IFixLender-getDeposit}.
+     * @dev See {IFlexLender-getDeposit}.
      */
     function getDeposit(
         address lender,
@@ -441,7 +456,7 @@ contract FlexLender is IFlexLender, AccessControl {
     }
 
     /**
-     * @dev See {IFixLender-getBonusRewards}.
+     * @dev See {IFlexLender-getBonusRewards}.
      */
     function getBonusRewards(address lender) external view returns (uint256) {
         (, uint256 baseBonusReward) = _calculateBaseRewards(lender);
@@ -449,7 +464,7 @@ contract FlexLender is IFlexLender, AccessControl {
     }
 
     /**
-     * @dev See {IFixLender-getBonusRewards}.
+     * @dev See {IFlexLender-getBonusRewards}.
      */
     function getBonusRewards(
         address lender,
@@ -465,7 +480,7 @@ contract FlexLender is IFlexLender, AccessControl {
     }
 
     /**
-     * @dev See {IFixLender-getStableRewards}.
+     * @dev See {IFlexLender-getStableRewards}.
      */
     function getStableRewards(address lender) external view returns (uint256) {
         (uint256 baseStableReward, ) = _calculateBaseRewards(lender);
@@ -473,7 +488,7 @@ contract FlexLender is IFlexLender, AccessControl {
     }
 
     /**
-     * @dev See {IFixLender-getStableRewards}.
+     * @dev See {IFlexLender-getStableRewards}.
      */
     function getStableRewards(
         address lender,
@@ -489,7 +504,7 @@ contract FlexLender is IFlexLender, AccessControl {
     }
 
     /**
-     * @dev See {IFixLender-getApr}.
+     * @dev See {IFlexLender-getApr}.
      */
     function getApr(
         address lender,
@@ -499,7 +514,7 @@ contract FlexLender is IFlexLender, AccessControl {
     }
 
     /**
-     * @dev See {IFixLender-getRate}.
+     * @dev See {IFlexLender-getRate}.
      */
     function getRate(
         address lender,
@@ -511,14 +526,14 @@ contract FlexLender is IFlexLender, AccessControl {
     }
 
     /**
-     * @dev See {IFixLender-getBaseApr}.
+     * @dev See {IFlexLender-getBaseApr}.
      */
     function getBaseApr() external view returns (uint256) {
         return rateRounds[_currentRateRound].stableApr;
     }
 
     /**
-     * @dev See {IFixLender-getBaseRate}.
+     * @dev See {IFlexLender-getBaseRate}.
      */
     function getBaseRate() external view returns (uint256) {
         return
@@ -527,7 +542,7 @@ contract FlexLender is IFlexLender, AccessControl {
     }
 
     /**
-     * @dev See {IFixLender-getLockingDuration}.
+     * @dev See {IFlexLender-getLockingDuration}.
      */
     function getLockingDuration(
         address lender,
@@ -537,63 +552,77 @@ contract FlexLender is IFlexLender, AccessControl {
     }
 
     /**
-     * @dev See {IFixLender-getMinLockingDuration}.
+     * @dev See {IFlexLender-getMinLockingDuration}.
      */
     function getMinLockingDuration() external view returns (uint256) {
         return _minLimit;
     }
 
     /**
-     * @dev See {IFixLender-getMaxLockingDuration}.
+     * @dev See {IFlexLender-getMaxLockingDuration}.
      */
     function getMaxLockingDuration() external view returns (uint256) {
         return _maxLimit;
     }
 
     /**
-     * @dev See {IFixLender-getPoolSize}.
+     * @dev See {IFlexLender-getPoolSize}.
      */
     function getPoolSize() external view returns (uint256) {
         return _poolSize;
     }
 
     /**
-     * @dev See {IFixLender-getMaxPoolSize}.
+     * @dev See {IFlexLender-getMaxPoolSize}.
      */
     function getMaxPoolSize() external view returns (uint256) {
         return _poolMaxLimit;
     }
 
     /**
-     * @dev See {IFixLender-getMinDeposit}.
+     * @dev See {IFlexLender-getTotalPenaltyFee}.
+     */
+    function getTotalPenaltyFee() external view returns (uint256) {
+        return _totalWithdrawFee;
+    }
+
+    /**
+     * @dev See {IFlexLender-getMinDeposit}.
      */
     function getMinDeposit() external view returns (uint256) {
         return _minDeposit;
     }
 
     /**
-     * @dev See {IFixLender-stableToken}.
+     * @dev See {IFlexLender-getWithdrawPenaltyPercent}.
+     */
+    function getWithdrawPenaltyPercent() external view returns (uint256) {
+        return _withdrawPenaltyPercent;
+    }
+
+    /**
+     * @dev See {IFlexLender-stableToken}.
      */
     function stableToken() external view returns (address) {
         return address(_stableToken);
     }
 
     /**
-     * @dev See {IFixLender-bonusToken}.
+     * @dev See {IFlexLender-bonusToken}.
      */
     function bonusToken() external view returns (address) {
         return address(_bonusToken);
     }
 
     /**
-     * @dev See {IFixLender-getVerificationStatus}.
+     * @dev See {IFlexLender-getVerificationStatus}.
      */
     function getVerificationStatus() external view returns (bool) {
         return _verificationStatus;
     }
 
     /**
-     * @dev See {IFixLender-getActiveDeposits}.
+     * @dev See {IFlexLender-getActiveDeposits}.
      */
     function getActiveDeposits(
         address lender

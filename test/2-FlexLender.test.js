@@ -1193,6 +1193,12 @@ describe("Flexible Lender Pool", function () {
       ).to.be.revertedWith("You have nothing with this ID");
     });
 
+    it("Should fail to withdraw penalty fees if there is nothing to withdraw", async function () {
+      await expect(lenderContract.withdrawFees()).to.be.revertedWith(
+        "Nothing to withdraw"
+      );
+    });
+
     it("Should fail to change withdraw rate to more than or equal to 100%", async function () {
       await expect(lenderContract.setWithdrawRate(10000)).to.be.revertedWith(
         "Rate can not be more than 100%"
@@ -1202,6 +1208,17 @@ describe("Flexible Lender Pool", function () {
     it("Should fail to change withdraw rate without admin access", async function () {
       await expect(
         lenderContract.connect(accounts[1]).setWithdrawRate(500)
+      ).to.be.revertedWith(
+        `AccessControl: account ${addresses[1].toLowerCase()} is missing role ${ethers.utils.hexZeroPad(
+          ethers.utils.hexlify(0),
+          32
+        )}`
+      );
+    });
+
+    it("Should fail to withdraw accumulated penalty fees without admin access", async function () {
+      await expect(
+        lenderContract.connect(accounts[1]).withdrawFees()
       ).to.be.revertedWith(
         `AccessControl: account ${addresses[1].toLowerCase()} is missing role ${ethers.utils.hexZeroPad(
           ethers.utils.hexlify(0),
@@ -1268,12 +1285,15 @@ describe("Flexible Lender Pool", function () {
       expect(actualStable).to.be.equal(expectedStable);
     });
 
-    it("Should deposit 100 stable with 3 different accounts and emergency withdraw before locking period (Rate: 0.52%) and decrease pool size", async function () {
+    it("Should deposit 100 stable with 3 different accounts and emergency withdraw before locking period (Rate: 0.52%) and decrease pool size and get available withdraw fee and withdraws it by admin", async function () {
       const rate = 0.0052;
       await bonusToken.transfer(lenderContract.address, await toBonus("10000"));
       await expect(lenderContract.setWithdrawRate(52))
         .to.emit(lenderContract, "WithdrawRateChanged")
         .withArgs(0, 52);
+      expect(
+        await lenderContract.connect(accounts[2]).getWithdrawPenaltyPercent()
+      ).to.be.equal(52);
       const amount = await toStable("100");
       for (let i = 1; i < 4; i++) {
         await stableToken.transfer(addresses[i], 2 * amount);
@@ -1328,6 +1348,21 @@ describe("Flexible Lender Pool", function () {
         expect(actualStable).to.be.equal(expectedStable);
         expect(poolSize).to.be.equal(2 * amount);
       }
+      const unroundExpectedFees = 3 * 200 * rate;
+      const expectedFees =
+        Math.round(unroundExpectedFees * 10 ** StableDecimal) /
+        10 ** StableDecimal;
+      const actualFees = await lenderContract.getTotalPenaltyFee();
+      expect(parseFloat(await fromStable(actualFees))).to.be.equal(
+        expectedFees
+      );
+      const beforeWithdrawFee = await stableToken.balanceOf(addresses[0]);
+      await lenderContract.withdrawFees();
+      const afterWithdrawFee = await stableToken.balanceOf(addresses[0]);
+      const withdrawBalance = afterWithdrawFee.sub(beforeWithdrawFee);
+      expect(parseFloat(await fromStable(withdrawBalance))).to.be.equal(
+        expectedFees
+      );
     });
   });
 
@@ -1362,6 +1397,18 @@ describe("Flexible Lender Pool", function () {
       expect(
         await lenderContract.connect(accounts[2]).getVerificationStatus()
       ).to.be.equal(false);
+    });
+
+    it("Should get available penalty emergency withdraw fees", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).getTotalPenaltyFee()
+      ).to.be.equal(0);
+    });
+
+    it("Should get current penalty emergency withdraw fee percentage with 2 decimals", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).getWithdrawPenaltyPercent()
+      ).to.be.equal(0);
     });
 
     it("Should get minimum deposit amount", async function () {
