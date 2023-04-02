@@ -54,5 +54,5 @@ module.exports = {
   DAY,
   StableApr,
   BonusRate,
-  PoolPeriod
+  PoolPeriod,
 };

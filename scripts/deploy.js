@@ -25,21 +25,43 @@ const {
   DAY,
   BonusRate,
   StableApr,
-  PoolPeriod,
 } = require("./constants");
 
 async function main() {
-  const provider = new ethers.providers.JsonRpcProvider(process.env.ARCHIVAL_RPC);
-  const startDate = Math.round((Date.now() / 1000) + 100);
-  const depositEndDate =Math.round((Date.now() / 1000) + (4 * DAY));
+  const startDate = Math.round(Date.now() / 1000 + 100);
+  const depositEndDate = Math.round(Date.now() / 1000 + 4 * DAY);
   const FlexLender = await ethers.getContractFactory("FlexLender");
-  const flex = await FlexLender.deploy(Admin, USDCAddress, TRADEAddress, MinDeposit, PoolMaxLimit);
+  const flex = await FlexLender.deploy(
+    Admin,
+    USDCAddress,
+    TRADEAddress,
+    MinDeposit,
+    PoolMaxLimit
+  );
   await flex.deployed();
-  const flex2 = await FlexLender.deploy(Admin, USDCAddress, TRADEAddress, MinDeposit, PoolMaxLimit);
+  const flex2 = await FlexLender.deploy(
+    Admin,
+    USDCAddress,
+    TRADEAddress,
+    MinDeposit,
+    PoolMaxLimit
+  );
   await flex2.deployed();
 
   const FixLender = await ethers.getContractFactory("FixLender");
-  const fix = await FixLender.deploy(Admin, USDCAddress, TRADEAddress, StableApr, BonusRate, startDate, depositEndDate, 5, MinDeposit, PoolMaxLimit, false);
+  const fix = await FixLender.deploy(
+    Admin,
+    USDCAddress,
+    TRADEAddress,
+    StableApr,
+    BonusRate,
+    startDate,
+    depositEndDate,
+    5,
+    MinDeposit,
+    PoolMaxLimit,
+    false
+  );
   await fix.deployed();
 
   const Strategy = await ethers.getContractFactory("Strategy");
@@ -66,14 +88,8 @@ async function main() {
   await fix.switchStrategy(strategy.address);
   await flex.changeBaseRates(BaseApr, BaseRate);
   await flex2.changeBaseRates(BaseApr, BaseRate);
-  await flex.changeDurationLimit(
-    0,
-    365
-  );
-  await flex2.changeDurationLimit(
-    90,
-    365
-  );
+  await flex.changeDurationLimit(0, 365);
+  await flex2.changeDurationLimit(90, 365);
   await flex.switchAprBondingCurve(aprCurve1.address);
   await flex.switchRateBondingCurve(rateCurve1.address);
   await flex2.switchAprBondingCurve(aprCurve2.address);
@@ -92,16 +108,15 @@ async function main() {
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
-main()
-  .catch((error) => {
-    throw new Error(error);
-  });
+main().catch((error) => {
+  throw new Error(error);
+});
 
-  // FlexLender1 deployed to: 0x4ddA99ABcc90bDD8FfC716523D3B73A2722FDEc2
-  // FlexLender2 deployed to: 0x226B300B7B7B64Be51FCB83a81Ab2a06485FcCce
-  // FixLender deployed to: 0xd9FbBBf97972F468df2d7BE9e6258465C5516B1A -> 1679926110 1680012410 -> 0x45cbBaEAC184cF487a534a1C2CE6BBf92f949F6d
-  // Strategy deployed to: 0xb03C1F0690EFD5a78047fE80f30290BfAA30D48c
-  // aprCurve1 deployed to: 0xf414069117695E2aad689e72BcC74C2DfAe5ac25
-  // rateCurve1 deployed to: 0x936E58CD14b7C8Ce6BBAf279B5823426b59470E5
-  // aprCurve2 deployed to: 0xA5c520417CACed3f1B2dac4736BBCDB9193F7858 -> 0x30A7253227f4DBdc653b64a5afDd5C3f19B0aF93
-  // rateCurve2 deployed to: 0x97f72A5E3d8384e969b4198eDf1FAd1120a76F76
+// FlexLender1 deployed to: 0x4ddA99ABcc90bDD8FfC716523D3B73A2722FDEc2
+// FlexLender2 deployed to: 0x226B300B7B7B64Be51FCB83a81Ab2a06485FcCce
+// FixLender deployed to: 0xd9FbBBf97972F468df2d7BE9e6258465C5516B1A -> 1679926110 1680012410 -> 0x45cbBaEAC184cF487a534a1C2CE6BBf92f949F6d
+// Strategy deployed to: 0xb03C1F0690EFD5a78047fE80f30290BfAA30D48c
+// aprCurve1 deployed to: 0xf414069117695E2aad689e72BcC74C2DfAe5ac25
+// rateCurve1 deployed to: 0x936E58CD14b7C8Ce6BBAf279B5823426b59470E5
+// aprCurve2 deployed to: 0xA5c520417CACed3f1B2dac4736BBCDB9193F7858 -> 0x30A7253227f4DBdc653b64a5afDd5C3f19B0aF93
+// rateCurve2 deployed to: 0x97f72A5E3d8384e969b4198eDf1FAd1120a76F76
