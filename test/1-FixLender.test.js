@@ -132,6 +132,24 @@ describe("Fixed Lender Pool", function () {
       ).to.be.revertedWith("Invalid Bonus Token address");
     });
 
+    it("Should fail if Minimum deposit is zero", async function () {
+      await expect(
+        LenderFactory.deploy(
+          addresses[0],
+          USDCAddress,
+          bonusAddress,
+          SampleAPR,
+          SampleRate,
+          currentTime + DAY,
+          currentTime + 3 * DAY,
+          SamplePeriod,
+          0,
+          PoolMaxLimit,
+          false
+        )
+      ).to.be.revertedWith("Invalid Min. Deposit");
+    });
+
     it("Should fail if Pool Start Date is less than currentTime", async function () {
       await expect(
         LenderFactory.deploy(
@@ -925,9 +943,25 @@ describe("Fixed Lender Pool", function () {
     });
 
     it("Should get stable token address", async function () {
+      expect(await lenderContract.stableToken()).to.be.equal(USDCAddress);
+    });
+
+    it("Should get bonus token address", async function () {
       expect(
-        await lenderContract.connect(accounts[2]).stableToken()
-      ).to.be.equal(USDCAddress);
+        await lenderContract.connect(accounts[2]).bonusToken()
+      ).to.be.equal(bonusAddress);
+    });
+
+    it("Should get strategy contract address", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).strategy()
+      ).to.be.equal(strategy.address);
+    });
+
+    it("Should get verification contract address", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).verification()
+      ).to.be.equal(ZeroAddress);
     });
 
     it("Should get minimum deposit amount", async function () {

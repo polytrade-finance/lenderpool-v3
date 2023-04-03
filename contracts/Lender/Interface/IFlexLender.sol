@@ -504,6 +504,26 @@ interface IFlexLender {
     function bonusToken() external view returns (address);
 
     /**
+     * @dev returns the address of Apr Bonding Curve
+     */
+    function aprBondingCurve() external view returns (address);
+
+    /**
+     * @dev returns the address of Rate Bonding Curve
+     */
+    function rateBondingCurve() external view returns (address);
+
+    /**
+     * @dev returns the address of verification contract
+     */
+    function verification() external view returns (address);
+
+    /**
+     * @dev returns the address of strategy contract
+     */
+    function strategy() external view returns (address);
+
+    /**
      * @dev returns the required verification status of lender pool
      */
     function getVerificationStatus() external view returns (bool);

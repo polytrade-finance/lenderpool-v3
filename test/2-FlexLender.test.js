@@ -122,6 +122,18 @@ describe("Flexible Lender Pool", function () {
       ).to.be.revertedWith("Invalid Bonus Token address");
     });
 
+    it("Should fail if Minimum deposit is zero", async function () {
+      await expect(
+        LenderFactory.deploy(
+          addresses[0],
+          USDCAddress,
+          bonusAddress,
+          0,
+          PoolMaxLimit
+        )
+      ).to.be.revertedWith("Invalid Min. Deposit");
+    });
+
     it("Should fail if Max. Pool size is less than Min. Deposit", async function () {
       await expect(
         LenderFactory.deploy(
@@ -1417,6 +1429,36 @@ describe("Flexible Lender Pool", function () {
 
     it("Should get stable token address", async function () {
       expect(await lenderContract.stableToken()).to.be.equal(USDCAddress);
+    });
+
+    it("Should get bonus token address", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).bonusToken()
+      ).to.be.equal(bonusAddress);
+    });
+
+    it("Should get strategy contract address", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).strategy()
+      ).to.be.equal(strategy.address);
+    });
+
+    it("Should get verification contract address", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).verification()
+      ).to.be.equal(ZeroAddress);
+    });
+
+    it("Should get Apr Bonding Curve contract address", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).aprBondingCurve()
+      ).to.be.equal(aprCurve.address);
+    });
+
+    it("Should get Rate Bonding Curve contract address", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).rateBondingCurve()
+      ).to.be.equal(rateCurve.address);
     });
 
     it("Should get minimum deposit amount", async function () {

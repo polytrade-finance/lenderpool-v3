@@ -42,8 +42,8 @@ contract FlexLender is IFlexLender, AccessControl {
         type(IVerification).interfaceId;
     bool private _verificationStatus;
 
-    IVerification public verification;
-    IStrategy public strategy;
+    IVerification private _verification;
+    IStrategy private _strategy;
     IBondingCurve private _aprBondingCurve;
     IBondingCurve private _rateBondingCurve;
     IToken private immutable _stableToken;
@@ -51,7 +51,7 @@ contract FlexLender is IFlexLender, AccessControl {
 
     modifier isValid() {
         if (_verificationStatus)
-            require(verification.isValid(msg.sender), "You are not verified");
+            require(_verification.isValid(msg.sender), "You are not verified");
         _;
     }
 
@@ -74,6 +74,7 @@ contract FlexLender is IFlexLender, AccessControl {
         require(admin_ != address(0), "Invalid Admin address");
         require(stableToken_ != address(0), "Invalid Stable Token address");
         require(bonusToken_ != address(0), "Invalid Bonus Token address");
+        require(minDeposit_ != 0, "Invalid Min. Deposit");
         require(poolMaxLimit_ > minDeposit_, "Invalid Pool Max. Limit");
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
         _stableToken = IToken(stableToken_);
@@ -124,8 +125,8 @@ contract FlexLender is IFlexLender, AccessControl {
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (!newVerification.supportsInterface(_VERIFICATION_INTERFACE_ID))
             revert UnsupportedInterface();
-        address oldVerification = address(verification);
-        verification = IVerification(newVerification);
+        address oldVerification = address(_verification);
+        _verification = IVerification(newVerification);
         emit VerificationSwitched(oldVerification, newVerification);
     }
 
@@ -137,13 +138,13 @@ contract FlexLender is IFlexLender, AccessControl {
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (!newStrategy.supportsInterface(_STRATEGY_INTERFACE_ID))
             revert UnsupportedInterface();
-        address oldStrategy = address(strategy);
+        address oldStrategy = address(_strategy);
         uint256 amount;
         if (oldStrategy != address(0)) {
-            amount = strategy.getBalance();
-            strategy.withdraw(amount);
+            amount = _strategy.getBalance();
+            _strategy.withdraw(amount);
         }
-        strategy = IStrategy(newStrategy);
+        _strategy = IStrategy(newStrategy);
         if (amount > 0) _depositInStrategy(amount);
         emit StrategySwitched(oldStrategy, newStrategy);
     }
@@ -222,7 +223,7 @@ contract FlexLender is IFlexLender, AccessControl {
      * @dev See {IFlexLender-deposit}.
      */
     function deposit(uint256 amount) external isValid {
-        require(address(strategy) != address(0), "There is no Strategy");
+        require(address(_strategy) != address(0), "There is no Strategy");
         require(amount >= _minDeposit, "Amount is less than Min. Deposit");
         require(
             _poolMaxLimit >= _poolSize + amount,
@@ -253,7 +254,7 @@ contract FlexLender is IFlexLender, AccessControl {
         uint256 amount,
         uint256 lockingDuration
     ) external isValid returns (uint256) {
-        require(address(strategy) != address(0), "There is no Strategy");
+        require(address(_strategy) != address(0), "There is no Strategy");
         require(amount >= _minDeposit, "Amount is less than Min. Deposit");
         require(
             lockingDuration >= _minLimit,
@@ -359,7 +360,7 @@ contract FlexLender is IFlexLender, AccessControl {
         lenderData.pendingBonusReward = 0;
         lenderData.pendingStableReward = 0;
         _poolSize = _poolSize - depositedAmount;
-        strategy.withdraw(depositedAmount);
+        _strategy.withdraw(depositedAmount);
         _bonusToken.safeTransfer(msg.sender, bonusAmount);
         _stableToken.safeTransfer(msg.sender, stableAmount);
         emit BaseWithdrawn(msg.sender, stableAmount, bonusAmount);
@@ -383,7 +384,7 @@ contract FlexLender is IFlexLender, AccessControl {
         delete lenders[msg.sender].deposits[id];
         _poolSize = _poolSize - depositedAmount;
         _updateId(msg.sender);
-        strategy.withdraw(depositedAmount);
+        _strategy.withdraw(depositedAmount);
         _bonusToken.safeTransfer(msg.sender, bonusReward);
         _stableToken.safeTransfer(msg.sender, stableAmount);
         emit Withdrawn(msg.sender, id, stableAmount, bonusReward);
@@ -411,7 +412,7 @@ contract FlexLender is IFlexLender, AccessControl {
         _poolSize = _poolSize - depositedAmount;
         _totalWithdrawFee =
             _totalWithdrawFee +
-            strategy.withdraw(depositedAmount) -
+            _strategy.withdraw(depositedAmount) -
             refundAmount;
         _updateId(msg.sender);
         _stableToken.safeTransfer(msg.sender, refundAmount);
@@ -615,6 +616,34 @@ contract FlexLender is IFlexLender, AccessControl {
     }
 
     /**
+     * @dev See {IFlexLender-aprBondingCurve}.
+     */
+    function aprBondingCurve() external view returns (address) {
+        return address(_aprBondingCurve);
+    }
+
+    /**
+     * @dev See {IFlexLender-rateBondingCurve}.
+     */
+    function rateBondingCurve() external view returns (address) {
+        return address(_rateBondingCurve);
+    }
+
+    /**
+     * @dev See {IFlexLender-verification}.
+     */
+    function verification() external view returns (address) {
+        return address(_verification);
+    }
+
+    /**
+     * @dev See {IFlexLender-strategy}.
+     */
+    function strategy() external view returns (address) {
+        return address(_strategy);
+    }
+
+    /**
      * @dev See {IFlexLender-getVerificationStatus}.
      */
     function getVerificationStatus() external view returns (bool) {
@@ -646,8 +675,8 @@ contract FlexLender is IFlexLender, AccessControl {
      * @param _amount, total amount to be deposited.
      */
     function _depositInStrategy(uint _amount) private {
-        _stableToken.approve(address(strategy), _amount);
-        strategy.deposit(_amount);
+        _stableToken.approve(address(_strategy), _amount);
+        _strategy.deposit(_amount);
     }
 
     /**

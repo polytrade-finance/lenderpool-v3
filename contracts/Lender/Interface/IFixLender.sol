@@ -229,6 +229,16 @@ interface IFixLender {
     function bonusToken() external view returns (address);
 
     /**
+     * @dev returns the address of verification contract
+     */
+    function verification() external view returns (address);
+
+    /**
+     * @dev returns the address of strategy contract
+     */
+    function strategy() external view returns (address);
+
+    /**
      * @dev returns the required verification status of lender pool
      */
     function getVerificationStatus() external view returns (bool);
