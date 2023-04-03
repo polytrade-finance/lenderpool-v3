@@ -1438,9 +1438,9 @@ describe("Flexible Lender Pool", function () {
     });
 
     it("Should get strategy contract address", async function () {
-      expect(
-        await lenderContract.connect(accounts[2]).strategy()
-      ).to.be.equal(strategy.address);
+      expect(await lenderContract.connect(accounts[2]).strategy()).to.be.equal(
+        strategy.address
+      );
     });
 
     it("Should get verification contract address", async function () {
