@@ -27,6 +27,7 @@ const {
   aUSDCAddress,
   AAVEPool,
   LenderPoolAccess,
+  ClientPortalAccess,
 } = require("./constants/constants.helpers");
 const {
   toStable,
@@ -1176,6 +1177,47 @@ describe("Flexible Lender Pool", function () {
         secondExpected - 0.00001,
         secondExpected
       );
+    });
+
+    it("Should fail to withdraw for client portal without access", async function () {
+      const amount = await toStable("100");
+      await expect(
+        lenderContract.connect(accounts[1]).clientPortalWithdraw(amount)
+      ).to.be.revertedWith(
+        `AccessControl: account ${addresses[1].toLowerCase()} is missing role ${ClientPortalAccess}`
+      );
+    });
+
+    it("Should fail to withdraw for client portal without enough balance", async function () {
+      const amount = await toStable("100000");
+      const amount2 = await toStable("10000");
+      await stableToken
+        .connect(accounts[0])
+        .approve(lenderContract.address, amount2);
+      await lenderContract["deposit(uint256)"](amount2);
+      await lenderContract.grantRole(ClientPortalAccess, addresses[1]);
+      await expect(
+        lenderContract.connect(accounts[1]).clientPortalWithdraw(amount)
+      ).to.be.revertedWith("Not enough balance");
+    });
+
+    it("Should withdraw for client portal from strategy", async function () {
+      const amount = await toStable("1000");
+      await stableToken
+        .connect(accounts[0])
+        .approve(lenderContract.address, amount);
+      await lenderContract["deposit(uint256)"](amount);
+      await lenderContract.grantRole(ClientPortalAccess, addresses[1]);
+      const stableBeforeWith = await stableToken.balanceOf(addresses[1]);
+      await expect(
+        lenderContract.connect(accounts[1]).clientPortalWithdraw(amount)
+      )
+        .to.emit(lenderContract, "ClientPortalWithdrew")
+        .withArgs(amount);
+      const stableAfterWith = await stableToken.balanceOf(addresses[1]);
+      const stableBalance = stableAfterWith.sub(stableBeforeWith);
+      const actualStable = parseFloat(await fromStable(stableBalance));
+      expect(actualStable).to.be.equal(1000);
     });
   });
   describe("Emergency Withdraw", function () {

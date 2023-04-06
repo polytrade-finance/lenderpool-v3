@@ -28,8 +28,8 @@ const {
 } = require("./constants");
 
 async function main() {
-  const startDate = Math.round(Date.now() / 1000 + 100);
-  const depositEndDate = Math.round(Date.now() / 1000 + 4 * DAY);
+  const startDate = Math.round(Date.now() / 1000 + 1 * DAY);
+  const depositEndDate = Math.round(Date.now() / 1000 + 3 * DAY - 10000);
   const FlexLender = await ethers.getContractFactory("FlexLender");
   const flex = await FlexLender.deploy(
     Admin,
@@ -57,7 +57,7 @@ async function main() {
     BonusRate,
     startDate,
     depositEndDate,
-    5,
+    2,
     MinDeposit,
     PoolMaxLimit,
     false
@@ -120,3 +120,9 @@ main().catch((error) => {
 // rateCurve1 deployed to: 0x936E58CD14b7C8Ce6BBAf279B5823426b59470E5
 // aprCurve2 deployed to: 0xA5c520417CACed3f1B2dac4736BBCDB9193F7858 -> 0x30A7253227f4DBdc653b64a5afDd5C3f19B0aF93
 // rateCurve2 deployed to: 0x97f72A5E3d8384e969b4198eDf1FAd1120a76F76
+
+// -----
+// fix1 for test ->  1680779880 1680856280
+// FixLender deployed to: 0xA1D1c42cEb8354AB39C92E36868aC92d212E0494
+// fix2 for test -> 1680780018 1680942818
+// FixLender deployed to: 0x64BF6c5De3c21C609DEACD837de103C32A0697Ba
