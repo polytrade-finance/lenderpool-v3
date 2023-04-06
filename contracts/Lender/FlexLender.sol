@@ -34,6 +34,7 @@ contract FlexLender is IFlexLender, AccessControl {
     uint256 private immutable _bonusDecimal;
     uint256 private immutable _minDeposit;
     uint256 private constant _YEAR = 365 days;
+    bytes32 public constant CLIENT_PORTAL = keccak256("CLIENT_PORTAL");
     bytes4 private constant _CURVE_INTERFACE_ID =
         type(IBondingCurve).interfaceId;
     bytes4 private constant _STRATEGY_INTERFACE_ID =
@@ -83,6 +84,18 @@ contract FlexLender is IFlexLender, AccessControl {
         _bonusDecimal = _bonusToken.decimals();
         _minDeposit = minDeposit_;
         _poolMaxLimit = poolMaxLimit_;
+    }
+
+    /**
+     * @dev See {IFlexLender-clientPortalWithdraw}.
+     */
+    function clientPortalWithdraw(
+        uint256 amount
+    ) external onlyRole(CLIENT_PORTAL) {
+        require(_strategy.getBalance() >= amount, "Not enough balance");
+        _strategy.withdraw(amount);
+        _stableToken.safeTransfer(msg.sender, amount);
+        emit ClientPortalWithdrew(amount);
     }
 
     /**

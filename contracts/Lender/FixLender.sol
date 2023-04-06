@@ -36,6 +36,7 @@ contract FixLender is IFixLender, AccessControl {
     uint256 private immutable _poolEndDate;
     uint256 private immutable _minDeposit;
     uint256 private immutable _poolMaxLimit;
+    bytes32 public constant CLIENT_PORTAL = keccak256("CLIENT_PORTAL");
     bytes4 private constant _STRATEGY_INTERFACE_ID =
         type(IStrategy).interfaceId;
     bytes4 private constant _VERIFICATION_INTERFACE_ID =
@@ -119,6 +120,18 @@ contract FixLender is IFixLender, AccessControl {
     }
 
     /**
+     * @dev See {IFixLender-clientPortalWithdraw}.
+     */
+    function clientPortalWithdraw(
+        uint256 amount
+    ) external onlyRole(CLIENT_PORTAL) {
+        require(_strategy.getBalance() >= amount, "Not enough balance");
+        _strategy.withdraw(amount);
+        _stableToken.safeTransfer(msg.sender, amount);
+        emit ClientPortalWithdrew(amount);
+    }
+
+    /**
      * @notice `switchVerification` updates the Verification contract address.
      * @dev Changed verification Contract must comply with `IVerification`
      * @param newVerification, address of the new Verification contract
@@ -153,7 +166,7 @@ contract FixLender is IFixLender, AccessControl {
             _strategy.withdraw(amount);
         }
         _strategy = IStrategy(newStrategy);
-        if (amount > 0) _depositInStrategy(amount);
+        if (amount != 0) _depositInStrategy(amount);
         emit StrategySwitched(oldStrategy, newStrategy);
     }
 

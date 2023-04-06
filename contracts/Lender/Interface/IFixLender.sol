@@ -83,6 +83,13 @@ interface IFixLender {
     event PenaltyFeeWithdrawn(uint256 amount);
 
     /**
+     * @notice Emitted when client portal withdraws
+     * @dev Emitted when clientPortalWithdraw function is called by client portal
+     * @param amount is the amount of stable token to withdraw from strategy
+     */
+    event ClientPortalWithdrew(uint256 amount);
+
+    /**
      * @notice Deposits an amount of stable token for a fixed lender pool
      * @dev It transfers the approved stable tokens from msg.sender to lender pool
      * @param amount Represents the amount of stable tokens to deposit
@@ -143,6 +150,12 @@ interface IFixLender {
      * Emits {StrategySwitched} event
      */
     function switchStrategy(address _newStrategy) external;
+
+    /**
+     * @dev Withdraws the amount of stable tokens by client portal to fund invoices
+     * Emits {ClientPortalWithdrew} event
+     */
+    function clientPortalWithdraw(uint256 amount) external;
 
     /**
      * @dev Withdraws accumulated penalty emergency withdraw fees to owner

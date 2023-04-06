@@ -211,6 +211,13 @@ interface IFlexLender {
     event PoolLimitChanged(uint256 oldLimit, uint256 newLimit);
 
     /**
+     * @notice Emitted when client portal withdraws
+     * @dev Emitted when clientPortalWithdraw function is called by client portal
+     * @param amount is the amount of stable token to withdraw from strategy
+     */
+    event ClientPortalWithdrew(uint256 amount);
+
+    /**
      * @notice Deposits an amount of stable token without locking period in the base lender pool
      * @dev It transfers the approved stable tokens from msg.sender to lender pool
      * @param amount Represents the amount of tokens to deposit
@@ -360,6 +367,12 @@ interface IFlexLender {
      * Emits {StrategySwitched} event
      */
     function switchStrategy(address newStrategy) external;
+
+    /**
+     * @dev Withdraws the amount of stable tokens by client portal to fund invoices
+     * Emits {ClientPortalWithdrew} event
+     */
+    function clientPortalWithdraw(uint256 amount) external;
 
     /**
      * @dev Withdraws accumulated penalty emergency withdraw fees to owner
