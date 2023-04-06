@@ -34,5 +34,5 @@ interface IStrategy {
      * @notice get deposited balance of staking strategy smart contract
      * @return total amount of deposited token for this contract
      */
-    function getBalance() external view returns (uint256);
+    function getBalance() external returns (uint256);
 }
