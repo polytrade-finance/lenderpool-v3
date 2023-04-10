@@ -36,7 +36,8 @@ contract FixLender is IFixLender, AccessControl {
     uint256 private immutable _poolEndDate;
     uint256 private immutable _minDeposit;
     uint256 private immutable _poolMaxLimit;
-    bytes32 public constant CLIENT_PORTAL = keccak256("CLIENT_PORTAL");
+    bytes32 public constant CLIENT_PORTAL =
+        0xe86416a2d82e87b14776ede109c81c092d7b4e557918dd147487d8259a8a6bcf;
     bytes4 private constant _STRATEGY_INTERFACE_ID =
         type(IStrategy).interfaceId;
     bytes4 private constant _VERIFICATION_INTERFACE_ID =

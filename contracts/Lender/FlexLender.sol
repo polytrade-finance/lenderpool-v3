@@ -34,7 +34,8 @@ contract FlexLender is IFlexLender, AccessControl {
     uint256 private immutable _bonusDecimal;
     uint256 private immutable _minDeposit;
     uint256 private constant _YEAR = 365 days;
-    bytes32 public constant CLIENT_PORTAL = keccak256("CLIENT_PORTAL");
+    bytes32 public constant CLIENT_PORTAL =
+        0xe86416a2d82e87b14776ede109c81c092d7b4e557918dd147487d8259a8a6bcf;
     bytes4 private constant _CURVE_INTERFACE_ID =
         type(IBondingCurve).interfaceId;
     bytes4 private constant _STRATEGY_INTERFACE_ID =

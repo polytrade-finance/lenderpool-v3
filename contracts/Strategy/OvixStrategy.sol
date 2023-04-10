@@ -17,7 +17,8 @@ contract OvixStrategy is IStrategy, AccessControl {
     IToken public stable;
     IOErc20 public oStable;
 
-    bytes32 public constant LENDER_POOL = keccak256("LENDER_POOL");
+    bytes32 public constant LENDER_POOL =
+        0x79f9d08539c9af23f45e174f4dc1015dddc8dea345e8c7c6eaaf16642ad39b20;
 
     constructor(address _stable, address _oStable) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
