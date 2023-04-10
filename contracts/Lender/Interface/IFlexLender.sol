@@ -151,6 +151,13 @@ interface IFlexLender {
     event StrategySwitched(address oldStrategy, address newStrategy);
 
     /**
+     * @notice Emitted when penalty fees is withdrawn
+     * @dev Emitted when withdrawFees function is called by owner
+     * @param amount is the total amount of accumulated emergency penalty withdraw fees
+     */
+    event PenaltyFeeWithdrawn(uint256 amount);
+
+    /**
      * @notice Emitted when APR bonding curve is switched
      * @dev Emitted when switchAprBondingCurve function is called by owner
      * @param oldBondingCurve is the address of the old staking strategy
@@ -202,6 +209,13 @@ interface IFlexLender {
      * @param newLimit is the new maximum limit for depositing
      */
     event PoolLimitChanged(uint256 oldLimit, uint256 newLimit);
+
+    /**
+     * @notice Emitted when client portal withdraws
+     * @dev Emitted when clientPortalWithdraw function is called by client portal
+     * @param amount is the amount of stable token to withdraw from strategy
+     */
+    event ClientPortalWithdrew(uint256 amount);
 
     /**
      * @notice Deposits an amount of stable token without locking period in the base lender pool
@@ -355,6 +369,18 @@ interface IFlexLender {
     function switchStrategy(address newStrategy) external;
 
     /**
+     * @dev Withdraws the amount of stable tokens by client portal to fund invoices
+     * Emits {ClientPortalWithdrew} event
+     */
+    function clientPortalWithdraw(uint256 amount) external;
+
+    /**
+     * @dev Withdraws accumulated penalty emergency withdraw fees to owner
+     * Emits {PenaltyFeeWithdrawn} event
+     */
+    function withdrawFees() external;
+
+    /**
      * @dev returns the all deposited amount of a specific lender
      * @param lender Represents the address of lender
      */
@@ -464,6 +490,51 @@ interface IFlexLender {
      * @dev returns the pool maximum size that once reached lender can not deposit
      */
     function getMaxPoolSize() external view returns (uint256);
+
+    /**
+     * @dev returns the minimum stable tokens required for depositing
+     */
+    function getMinDeposit() external view returns (uint256);
+
+    /**
+     * @dev returns accumulated emergency penalty withdraw fees
+     */
+    function getTotalPenaltyFee() external view returns (uint256);
+
+    /**
+     * @dev returns emergency withdraw penalty percentage with 2 decimals
+     */
+    function getWithdrawPenaltyPercent() external view returns (uint256);
+
+    /**
+     * @dev returns the address of Stable Token
+     */
+    function stableToken() external view returns (address);
+
+    /**
+     * @dev returns the address of Bonus Token
+     */
+    function bonusToken() external view returns (address);
+
+    /**
+     * @dev returns the address of Apr Bonding Curve
+     */
+    function aprBondingCurve() external view returns (address);
+
+    /**
+     * @dev returns the address of Rate Bonding Curve
+     */
+    function rateBondingCurve() external view returns (address);
+
+    /**
+     * @dev returns the address of verification contract
+     */
+    function verification() external view returns (address);
+
+    /**
+     * @dev returns the address of strategy contract
+     */
+    function strategy() external view returns (address);
 
     /**
      * @dev returns the required verification status of lender pool

@@ -27,6 +27,7 @@ const {
   aUSDCAddress,
   AAVEPool,
   LenderPoolAccess,
+  ClientPortalAccess,
 } = require("./constants/constants.helpers");
 const {
   toStable,
@@ -120,6 +121,18 @@ describe("Flexible Lender Pool", function () {
           PoolMaxLimit
         )
       ).to.be.revertedWith("Invalid Bonus Token address");
+    });
+
+    it("Should fail if Minimum deposit is zero", async function () {
+      await expect(
+        LenderFactory.deploy(
+          addresses[0],
+          USDCAddress,
+          bonusAddress,
+          0,
+          PoolMaxLimit
+        )
+      ).to.be.revertedWith("Invalid Min. Deposit");
     });
 
     it("Should fail if Max. Pool size is less than Min. Deposit", async function () {
@@ -1165,6 +1178,47 @@ describe("Flexible Lender Pool", function () {
         secondExpected
       );
     });
+
+    it("Should fail to withdraw for client portal without access", async function () {
+      const amount = await toStable("100");
+      await expect(
+        lenderContract.connect(accounts[1]).clientPortalWithdraw(amount)
+      ).to.be.revertedWith(
+        `AccessControl: account ${addresses[1].toLowerCase()} is missing role ${ClientPortalAccess}`
+      );
+    });
+
+    it("Should fail to withdraw for client portal without enough balance", async function () {
+      const amount = await toStable("100000");
+      const amount2 = await toStable("10000");
+      await stableToken
+        .connect(accounts[0])
+        .approve(lenderContract.address, amount2);
+      await lenderContract["deposit(uint256)"](amount2);
+      await lenderContract.grantRole(ClientPortalAccess, addresses[1]);
+      await expect(
+        lenderContract.connect(accounts[1]).clientPortalWithdraw(amount)
+      ).to.be.revertedWith("Not enough balance");
+    });
+
+    it("Should withdraw for client portal from strategy", async function () {
+      const amount = await toStable("1000");
+      await stableToken
+        .connect(accounts[0])
+        .approve(lenderContract.address, amount);
+      await lenderContract["deposit(uint256)"](amount);
+      await lenderContract.grantRole(ClientPortalAccess, addresses[1]);
+      const stableBeforeWith = await stableToken.balanceOf(addresses[1]);
+      await expect(
+        lenderContract.connect(accounts[1]).clientPortalWithdraw(amount)
+      )
+        .to.emit(lenderContract, "ClientPortalWithdrew")
+        .withArgs(amount);
+      const stableAfterWith = await stableToken.balanceOf(addresses[1]);
+      const stableBalance = stableAfterWith.sub(stableBeforeWith);
+      const actualStable = parseFloat(await fromStable(stableBalance));
+      expect(actualStable).to.be.equal(1000);
+    });
   });
   describe("Emergency Withdraw", function () {
     beforeEach(async function () {
@@ -1193,6 +1247,12 @@ describe("Flexible Lender Pool", function () {
       ).to.be.revertedWith("You have nothing with this ID");
     });
 
+    it("Should fail to withdraw penalty fees if there is nothing to withdraw", async function () {
+      await expect(lenderContract.withdrawFees()).to.be.revertedWith(
+        "Nothing to withdraw"
+      );
+    });
+
     it("Should fail to change withdraw rate to more than or equal to 100%", async function () {
       await expect(lenderContract.setWithdrawRate(10000)).to.be.revertedWith(
         "Rate can not be more than 100%"
@@ -1202,6 +1262,17 @@ describe("Flexible Lender Pool", function () {
     it("Should fail to change withdraw rate without admin access", async function () {
       await expect(
         lenderContract.connect(accounts[1]).setWithdrawRate(500)
+      ).to.be.revertedWith(
+        `AccessControl: account ${addresses[1].toLowerCase()} is missing role ${ethers.utils.hexZeroPad(
+          ethers.utils.hexlify(0),
+          32
+        )}`
+      );
+    });
+
+    it("Should fail to withdraw accumulated penalty fees without admin access", async function () {
+      await expect(
+        lenderContract.connect(accounts[1]).withdrawFees()
       ).to.be.revertedWith(
         `AccessControl: account ${addresses[1].toLowerCase()} is missing role ${ethers.utils.hexZeroPad(
           ethers.utils.hexlify(0),
@@ -1268,12 +1339,15 @@ describe("Flexible Lender Pool", function () {
       expect(actualStable).to.be.equal(expectedStable);
     });
 
-    it("Should deposit 100 stable with 3 different accounts and emergency withdraw before locking period (Rate: 0.52%) and decrease pool size", async function () {
+    it("Should deposit 100 stable with 3 different accounts and emergency withdraw before locking period (Rate: 0.52%) and decrease pool size and get available withdraw fee and withdraws it by admin", async function () {
       const rate = 0.0052;
       await bonusToken.transfer(lenderContract.address, await toBonus("10000"));
       await expect(lenderContract.setWithdrawRate(52))
         .to.emit(lenderContract, "WithdrawRateChanged")
         .withArgs(0, 52);
+      expect(
+        await lenderContract.connect(accounts[2]).getWithdrawPenaltyPercent()
+      ).to.be.equal(52);
       const amount = await toStable("100");
       for (let i = 1; i < 4; i++) {
         await stableToken.transfer(addresses[i], 2 * amount);
@@ -1328,6 +1402,21 @@ describe("Flexible Lender Pool", function () {
         expect(actualStable).to.be.equal(expectedStable);
         expect(poolSize).to.be.equal(2 * amount);
       }
+      const unroundExpectedFees = 3 * 200 * rate;
+      const expectedFees =
+        Math.round(unroundExpectedFees * 10 ** StableDecimal) /
+        10 ** StableDecimal;
+      const actualFees = await lenderContract.getTotalPenaltyFee();
+      expect(parseFloat(await fromStable(actualFees))).to.be.equal(
+        expectedFees
+      );
+      const beforeWithdrawFee = await stableToken.balanceOf(addresses[0]);
+      await lenderContract.withdrawFees();
+      const afterWithdrawFee = await stableToken.balanceOf(addresses[0]);
+      const withdrawBalance = afterWithdrawFee.sub(beforeWithdrawFee);
+      expect(parseFloat(await fromStable(withdrawBalance))).to.be.equal(
+        expectedFees
+      );
     });
   });
 
@@ -1362,6 +1451,60 @@ describe("Flexible Lender Pool", function () {
       expect(
         await lenderContract.connect(accounts[2]).getVerificationStatus()
       ).to.be.equal(false);
+    });
+
+    it("Should get available penalty emergency withdraw fees", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).getTotalPenaltyFee()
+      ).to.be.equal(0);
+    });
+
+    it("Should get current penalty emergency withdraw fee percentage with 2 decimals", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).getWithdrawPenaltyPercent()
+      ).to.be.equal(0);
+    });
+
+    it("Should get minimum deposit amount", async function () {
+      expect(await lenderContract.getMinDeposit()).to.be.equal(MinDeposit);
+    });
+
+    it("Should get stable token address", async function () {
+      expect(await lenderContract.stableToken()).to.be.equal(USDCAddress);
+    });
+
+    it("Should get bonus token address", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).bonusToken()
+      ).to.be.equal(bonusAddress);
+    });
+
+    it("Should get strategy contract address", async function () {
+      expect(await lenderContract.connect(accounts[2]).strategy()).to.be.equal(
+        strategy.address
+      );
+    });
+
+    it("Should get verification contract address", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).verification()
+      ).to.be.equal(ZeroAddress);
+    });
+
+    it("Should get Apr Bonding Curve contract address", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).aprBondingCurve()
+      ).to.be.equal(aprCurve.address);
+    });
+
+    it("Should get Rate Bonding Curve contract address", async function () {
+      expect(
+        await lenderContract.connect(accounts[2]).rateBondingCurve()
+      ).to.be.equal(rateCurve.address);
+    });
+
+    it("Should get minimum deposit amount", async function () {
+      expect(await lenderContract.bonusToken()).to.be.equal(bonusAddress);
     });
 
     it("Should get Base Apr", async function () {

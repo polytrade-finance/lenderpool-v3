@@ -23,6 +23,7 @@ contract FixLender is IFixLender, AccessControl {
     mapping(address => Lender) public lenders;
 
     uint256 private _poolSize;
+    uint256 private _totalWithdrawFee;
     uint256 private _withdrawPenaltyPercent;
     uint256 private constant _YEAR = 365 days;
     uint256 private immutable _stableApr;
@@ -35,20 +36,22 @@ contract FixLender is IFixLender, AccessControl {
     uint256 private immutable _poolEndDate;
     uint256 private immutable _minDeposit;
     uint256 private immutable _poolMaxLimit;
+    bytes32 public constant CLIENT_PORTAL =
+        0xe86416a2d82e87b14776ede109c81c092d7b4e557918dd147487d8259a8a6bcf;
     bytes4 private constant _STRATEGY_INTERFACE_ID =
         type(IStrategy).interfaceId;
     bytes4 private constant _VERIFICATION_INTERFACE_ID =
         type(IVerification).interfaceId;
     bool private immutable _verificationStatus;
 
-    IVerification public verification;
-    IStrategy public strategy;
+    IVerification private _verification;
+    IStrategy private _strategy;
     IToken private immutable _stableToken;
     IToken private immutable _bonusToken;
 
     modifier isValid() {
         if (_verificationStatus) {
-            require(verification.isValid(msg.sender), "You are not verified");
+            require(_verification.isValid(msg.sender), "You are not verified");
         }
         _;
     }
@@ -87,6 +90,7 @@ contract FixLender is IFixLender, AccessControl {
         require(poolStartDate_ > block.timestamp, "Invalid Pool Start Date");
         require(depositEndDate_ > block.timestamp, "Invalid Deposit End Date");
         require(poolPeriod_ != 0, "Invalid Pool Duration");
+        require(minDeposit_ != 0, "Invalid Min. Deposit");
         require(poolMaxLimit_ > minDeposit_, "Invalid Pool Max. Limit");
         require(bonusRate_ < 10_001, "Invalid Bonus Rate");
         _grantRole(DEFAULT_ADMIN_ROLE, admin_);
@@ -106,6 +110,29 @@ contract FixLender is IFixLender, AccessControl {
     }
 
     /**
+     * @dev See {IFixLender-withdrawFees}.
+     */
+    function withdrawFees() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(_totalWithdrawFee != 0, "Nothing to withdraw");
+        uint256 amount = _totalWithdrawFee;
+        _totalWithdrawFee = 0;
+        _stableToken.safeTransfer(msg.sender, amount);
+        emit PenaltyFeeWithdrawn(amount);
+    }
+
+    /**
+     * @dev See {IFixLender-clientPortalWithdraw}.
+     */
+    function clientPortalWithdraw(
+        uint256 amount
+    ) external onlyRole(CLIENT_PORTAL) {
+        require(_strategy.getBalance() >= amount, "Not enough balance");
+        _strategy.withdraw(amount);
+        _stableToken.safeTransfer(msg.sender, amount);
+        emit ClientPortalWithdrew(amount);
+    }
+
+    /**
      * @notice `switchVerification` updates the Verification contract address.
      * @dev Changed verification Contract must comply with `IVerification`
      * @param newVerification, address of the new Verification contract
@@ -116,8 +143,8 @@ contract FixLender is IFixLender, AccessControl {
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (!newVerification.supportsInterface(_VERIFICATION_INTERFACE_ID))
             revert UnsupportedInterface();
-        address oldVerification = address(verification);
-        verification = IVerification(newVerification);
+        address oldVerification = address(_verification);
+        _verification = IVerification(newVerification);
         emit VerificationSwitched(oldVerification, newVerification);
     }
 
@@ -133,14 +160,14 @@ contract FixLender is IFixLender, AccessControl {
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (!newStrategy.supportsInterface(_STRATEGY_INTERFACE_ID))
             revert UnsupportedInterface();
-        address oldStrategy = address(strategy);
+        address oldStrategy = address(_strategy);
         uint256 amount;
         if (oldStrategy != address(0)) {
-            amount = strategy.getBalance();
-            strategy.withdraw(amount);
+            amount = _strategy.getBalance();
+            _strategy.withdraw(amount);
         }
-        strategy = IStrategy(newStrategy);
-        if (amount > 0) _depositInStrategy(amount);
+        _strategy = IStrategy(newStrategy);
+        if (amount != 0) _depositInStrategy(amount);
         emit StrategySwitched(oldStrategy, newStrategy);
     }
 
@@ -148,7 +175,7 @@ contract FixLender is IFixLender, AccessControl {
      * @dev See {IFixLender-deposit}.
      */
     function deposit(uint256 amount) external isValid {
-        require(address(strategy) != address(0), "There is no Strategy");
+        require(address(_strategy) != address(0), "There is no Strategy");
         require(amount >= _minDeposit, "Amount is less than Min. Deposit");
         require(
             _poolMaxLimit >= _poolSize + amount,
@@ -228,7 +255,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 bonusAmount = bonusReward + lenderData.pendingBonusReward;
         delete lenders[msg.sender];
         _poolSize = _poolSize - totalDeposit;
-        strategy.withdraw(totalDeposit);
+        _strategy.withdraw(totalDeposit);
         _bonusToken.safeTransfer(msg.sender, bonusAmount);
         _stableToken.safeTransfer(msg.sender, stableAmount);
         emit Withdrawn(msg.sender, stableAmount, bonusAmount);
@@ -251,7 +278,10 @@ contract FixLender is IFixLender, AccessControl {
         uint256 refundAmount = totalDeposit - withdrawFee;
         delete lenders[msg.sender];
         _poolSize = _poolSize - totalDeposit;
-        strategy.withdraw(refundAmount);
+        _totalWithdrawFee =
+            _totalWithdrawFee +
+            _strategy.withdraw(totalDeposit) -
+            refundAmount;
         _stableToken.safeTransfer(msg.sender, refundAmount);
         emit WithdrawnEmergency(msg.sender, refundAmount);
     }
@@ -349,6 +379,55 @@ contract FixLender is IFixLender, AccessControl {
     }
 
     /**
+     * @dev See {IFixLender-getMinDeposit}.
+     */
+    function getMinDeposit() external view returns (uint256) {
+        return _minDeposit;
+    }
+
+    /**
+     * @dev See {IFixLender-getTotalPenaltyFee}.
+     */
+    function getTotalPenaltyFee() external view returns (uint256) {
+        return _totalWithdrawFee;
+    }
+
+    /**
+     * @dev See {IFixLender-getWithdrawPenaltyPercent}.
+     */
+    function getWithdrawPenaltyPercent() external view returns (uint256) {
+        return _withdrawPenaltyPercent;
+    }
+
+    /**
+     * @dev See {IFixLender-stableToken}.
+     */
+    function stableToken() external view returns (address) {
+        return address(_stableToken);
+    }
+
+    /**
+     * @dev See {IFixLender-bonusToken}.
+     */
+    function bonusToken() external view returns (address) {
+        return address(_bonusToken);
+    }
+
+    /**
+     * @dev See {IFlexLender-verification}.
+     */
+    function verification() external view returns (address) {
+        return address(_verification);
+    }
+
+    /**
+     * @dev See {IFlexLender-strategy}.
+     */
+    function strategy() external view returns (address) {
+        return address(_strategy);
+    }
+
+    /**
      * @dev See {IFixLender-getVerificationStatus}.
      */
     function getVerificationStatus() external view returns (bool) {
@@ -361,8 +440,8 @@ contract FixLender is IFixLender, AccessControl {
      * @param amount, total amount to be deposited.
      */
     function _depositInStrategy(uint amount) private {
-        _stableToken.approve(address(strategy), amount);
-        strategy.deposit(amount);
+        _stableToken.approve(address(_strategy), amount);
+        _strategy.deposit(amount);
     }
 
     /**

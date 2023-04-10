@@ -26,12 +26,13 @@ interface IStrategy {
      * @notice withdraw funds from defi protocol and send to lending pool
      * @dev can be called by only lender pool
      * @param amount, total amount accepted from user and transferred to defi protocol
+     * @return the final withdrawn amount
      */
-    function withdraw(uint256 amount) external;
+    function withdraw(uint256 amount) external returns (uint256);
 
     /**
      * @notice get deposited balance of staking strategy smart contract
      * @return total amount of deposited token for this contract
      */
-    function getBalance() external view returns (uint256);
+    function getBalance() external returns (uint256);
 }
