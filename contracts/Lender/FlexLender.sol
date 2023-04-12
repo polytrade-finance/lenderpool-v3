@@ -157,7 +157,9 @@ contract FlexLender is IFlexLender, AccessControl {
         if (oldStrategy != address(0)) {
             amount = _strategy.getBalance();
             _strategy.withdraw(amount);
+            _stableToken.approve(address(_strategy), 0);
         }
+        amount = _stableToken.balanceOf(address(this));
         _strategy = IStrategy(newStrategy);
         if (amount > 0) _depositInStrategy(amount);
         emit StrategySwitched(oldStrategy, newStrategy);
@@ -374,7 +376,7 @@ contract FlexLender is IFlexLender, AccessControl {
         lenderData.pendingBonusReward = 0;
         lenderData.pendingStableReward = 0;
         _poolSize = _poolSize - depositedAmount;
-        _strategy.withdraw(depositedAmount);
+        _strategy.withdraw(stableAmount);
         _bonusToken.safeTransfer(msg.sender, bonusAmount);
         _stableToken.safeTransfer(msg.sender, stableAmount);
         emit BaseWithdrawn(msg.sender, stableAmount, bonusAmount);
@@ -398,7 +400,7 @@ contract FlexLender is IFlexLender, AccessControl {
         delete lenders[msg.sender].deposits[id];
         _poolSize = _poolSize - depositedAmount;
         _updateId(msg.sender);
-        _strategy.withdraw(depositedAmount);
+        _strategy.withdraw(stableAmount);
         _bonusToken.safeTransfer(msg.sender, bonusReward);
         _stableToken.safeTransfer(msg.sender, stableAmount);
         emit Withdrawn(msg.sender, id, stableAmount, bonusReward);
