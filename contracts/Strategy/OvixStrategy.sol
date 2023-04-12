@@ -53,6 +53,7 @@ contract OvixStrategy is IStrategy, AccessControl {
             oStable.redeemUnderlying(amount) == 0,
             "Failed to withdraw from strategy"
         );
+        stable.safeTransfer(msg.sender, amount);
         emit Withdrawn(amount);
         return amount;
     }
