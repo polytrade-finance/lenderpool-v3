@@ -104,7 +104,6 @@ describe("Fixed Lender Pool 2nd Test", function () {
       const initialDeposit = await toStable("10000");
       await stableToken.approve(lenderContract.address, initialDeposit);
       await lenderContract.deposit(initialDeposit);
-      console.log("account 0 deposited 10k");
     });
 
     it("Should withdraw all rewards + principal after pool end date", async function () {
@@ -116,12 +115,10 @@ describe("Fixed Lender Pool 2nd Test", function () {
         .connect(accounts[1])
         .approve(lenderContract.address, amount);
       await lenderContract.connect(accounts[1]).deposit(amount);
-      console.log("account 1 deposited 100");
       // Increase to pool start date
       await time.increase(DAY);
       const Period = SamplePeriod * DAY;
       await time.increase(Period);
-      console.log("90 days passed from start date");
       const expectedBonus = (100 * Period * (SampleRate / 100)) / YEAR;
       const unroundExpectedStable =
         (100 * Period * (SampleAPR / 10000)) / YEAR + 100;
@@ -140,7 +137,6 @@ describe("Fixed Lender Pool 2nd Test", function () {
       const actualStable = parseFloat(await fromStable(stableBalance));
       expect(actualBonus).to.be.equal(expectedBonus);
       expect(actualStable).to.be.equal(expectedStable);
-      console.log(`withdrawn ${expectedStable} stable for account 1`);
     });
 
     it("Should deposit 100 stable with 3 different accounts before and after pool start date and withdraw after pool end date and decrease pool size", async function () {
@@ -157,21 +153,17 @@ describe("Fixed Lender Pool 2nd Test", function () {
         await expect(lenderContract.connect(accounts[i]).deposit(amount))
           .to.emit(lenderContract, "Deposited")
           .withArgs(addresses[i], amount);
-        console.log(`account ${i} deposited 100 stable`);
       }
       // Increase to one day after pool start date
       await time.increase(2 * DAY);
-      console.log(`1 day passed from start date`);
       for (let i = 1; i < 4; i++) {
         await expect(lenderContract.connect(accounts[i]).deposit(amount))
           .to.emit(lenderContract, "Deposited")
           .withArgs(addresses[i], amount);
-        console.log(`account ${i} deposited 100 stable`);
       }
       const Period = SamplePeriod * DAY;
       const secondPeriod = (SamplePeriod - 1) * DAY;
       await time.increase(secondPeriod);
-      console.log("90 days passed from start date");
       const expectedBonus1st = (100 * Period * (SampleRate / 100)) / YEAR;
       const expectedBonus2nd = (100 * secondPeriod * (SampleRate / 100)) / YEAR;
       const unroundExpectedStable1st =
@@ -204,7 +196,6 @@ describe("Fixed Lender Pool 2nd Test", function () {
           expectedStable - 0.00001,
           expectedStable
         );
-        console.log(`withdrawn ${expectedStable} stable for account ${i}`);
         expect(actualBonus).to.be.within(expectedBonus - 0.0003, expectedBonus);
         expect(poolSize).to.be.equal(2 * amount);
       }
@@ -239,7 +230,6 @@ describe("Fixed Lender Pool 2nd Test", function () {
         .connect(accounts[1])
         .approve(lenderContract.address, 2 * amount);
       await lenderContract.connect(accounts[1]).deposit(amount);
-      console.log(`account 1 deposited 100 stable`);
 
       // Increase to pool start date
       await time.increase(DAY);
@@ -249,7 +239,6 @@ describe("Fixed Lender Pool 2nd Test", function () {
       const Period = (SamplePeriod - 10) * DAY;
       // increase to 10 days before pool end date
       await time.increase(Period - 10);
-      console.log(`80 days passed from 90 days period`);
       const expectedStable = 200 - 200 * rate;
       const expectedBonus = 0;
       const bonusBeforeWith = await bonusToken.balanceOf(addresses[1]);
@@ -265,7 +254,6 @@ describe("Fixed Lender Pool 2nd Test", function () {
       const actualStable = parseFloat(await fromStable(stableBalance));
       expect(actualBonus).to.be.equal(expectedBonus);
       expect(actualStable).to.be.equal(expectedStable);
-      console.log(`withdrawn ${actualStable} stable for account 1`);
       expect(await lenderContract.getPoolSize());
     });
 
@@ -273,7 +261,6 @@ describe("Fixed Lender Pool 2nd Test", function () {
       const initialDeposit = await toStable("10000");
       await stableToken.approve(lenderContract.address, initialDeposit);
       await lenderContract.deposit(initialDeposit);
-      console.log("account 0 deposited 10k");
       const amount = await toStable("1000");
       await stableToken.transfer(lenderContract.address, amount);
       await strategy2.grantRole(LenderPoolAccess, lenderContract.address);
@@ -298,7 +285,6 @@ describe("Fixed Lender Pool 2nd Test", function () {
       await stableToken.approve(lenderContract.address, initialDeposit);
       await lenderContract.deposit(initialDeposit);
       await bonusToken.transfer(lenderContract.address, bonusAmount);
-      console.log("account 0 deposited 10k");
       await strategy2.grantRole(LenderPoolAccess, lenderContract.address);
       await lenderContract.switchStrategy(strategy2.address);
       const amount = await toStable("1000");
@@ -308,7 +294,6 @@ describe("Fixed Lender Pool 2nd Test", function () {
           .connect(accounts[i])
           .approve(lenderContract.address, amount);
         await lenderContract.connect(accounts[i]).deposit(amount);
-        console.log(`account ${i} deposited 1000 stable`);
       }
       const unroundExpectedStable =
         (1000 * SamplePeriod * DAY * (SampleAPR / 10000)) / YEAR + 1000;
@@ -321,7 +306,6 @@ describe("Fixed Lender Pool 2nd Test", function () {
       await time.increase(Period - 10);
       const acc1Before = await stableToken.balanceOf(addresses[1]);
       await lenderContract.connect(accounts[1]).emergencyWithdraw();
-      console.log(`account 1 emergency withdrew 1000 stable`);
       const acc1After = await stableToken.balanceOf(addresses[1]);
       expect(acc1After.sub(acc1Before)).to.be.equal(amount);
       await time.increase(12 * DAY);
@@ -330,9 +314,6 @@ describe("Fixed Lender Pool 2nd Test", function () {
       const acc2After = await stableToken.balanceOf(addresses[2]);
       const actualAcc2 = parseFloat(
         await fromStable(acc2After.sub(acc2Before))
-      );
-      console.log(
-        `account 2 emergency withdrew ${actualAcc2} stable + rewards`
       );
       expect(actualAcc2).to.be.equal(expectedStable);
     });
