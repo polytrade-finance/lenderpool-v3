@@ -165,7 +165,9 @@ contract FixLender is IFixLender, AccessControl {
         if (oldStrategy != address(0)) {
             amount = _strategy.getBalance();
             _strategy.withdraw(amount);
+            _stableToken.approve(address(_strategy), 0);
         }
+        amount = _stableToken.balanceOf(address(this));
         _strategy = IStrategy(newStrategy);
         if (amount != 0) _depositInStrategy(amount);
         emit StrategySwitched(oldStrategy, newStrategy);
@@ -255,7 +257,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 bonusAmount = bonusReward + lenderData.pendingBonusReward;
         delete lenders[msg.sender];
         _poolSize = _poolSize - totalDeposit;
-        _strategy.withdraw(totalDeposit);
+        _strategy.withdraw(stableAmount);
         _bonusToken.safeTransfer(msg.sender, bonusAmount);
         _stableToken.safeTransfer(msg.sender, stableAmount);
         emit Withdrawn(msg.sender, stableAmount, bonusAmount);
