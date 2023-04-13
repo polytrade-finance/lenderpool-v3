@@ -215,7 +215,7 @@ interface IFlexLender {
      * @dev Emitted when clientPortalWithdraw function is called by client portal
      * @param amount is the amount of stable token to withdraw from strategy
      */
-    event ClientPortalWithdrew(uint256 amount);
+    event ClientPortalWithdrawal(uint256 amount);
 
     /**
      * @notice Deposits an amount of stable token without locking period in the base lender pool
@@ -370,7 +370,7 @@ interface IFlexLender {
 
     /**
      * @dev Withdraws the amount of stable tokens by client portal to fund invoices
-     * Emits {ClientPortalWithdrew} event
+     * Emits {ClientPortalWithdrawal} event
      */
     function clientPortalWithdraw(uint256 amount) external;
 

@@ -129,7 +129,7 @@ contract FixLender is IFixLender, AccessControl {
         require(_strategy.getBalance() >= amount, "Not enough balance");
         _strategy.withdraw(amount);
         _stableToken.safeTransfer(msg.sender, amount);
-        emit ClientPortalWithdrew(amount);
+        emit ClientPortalWithdrawal(amount);
     }
 
     /**
