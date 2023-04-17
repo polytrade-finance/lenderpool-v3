@@ -460,8 +460,8 @@ contract FixLender is IFixLender, AccessControl {
         uint256 diff = endDate - lenderData.lastUpdateDate;
         uint256 totalDeposit = lenderData.totalDeposit;
         return (
-            _calculateFormula(diff, totalDeposit, _stableApr),
-            _calculateFormula(diff, totalDeposit, _bonusRate)
+            _calculateFormula(totalDeposit, diff, _stableApr),
+            _calculateFormula(totalDeposit, diff, _bonusRate)
         );
     }
 
