@@ -248,23 +248,27 @@ describe("Flexible Lender Pool", function () {
     });
 
     it("Should fail to set zero address for apr bonding curve", async function () {
-      await expect(lenderContract.switchAprBondingCurve(ZeroAddress)).to.be
-        .reverted;
+      await expect(
+        lenderContract.switchAprBondingCurve(ZeroAddress)
+      ).to.be.revertedWithCustomError(lenderContract, "UnsupportedInterface");
     });
 
     it("Should fail to set zero address for rate bonding curve", async function () {
-      await expect(lenderContract.switchRateBondingCurve(ZeroAddress)).to.be
-        .reverted;
+      await expect(
+        lenderContract.switchRateBondingCurve(ZeroAddress)
+      ).to.be.revertedWithCustomError(lenderContract, "UnsupportedInterface");
     });
 
     it("Should fail to set apr address without curve interface support", async function () {
-      await expect(lenderContract.switchAprBondingCurve(stableToken.address)).to
-        .be.reverted;
+      await expect(
+        lenderContract.switchAprBondingCurve(stableToken.address)
+      ).to.be.revertedWithCustomError(lenderContract, "UnsupportedInterface");
     });
 
     it("Should fail to set rate address without curve interface support", async function () {
-      await expect(lenderContract.switchRateBondingCurve(stableToken.address))
-        .to.be.reverted;
+      await expect(
+        lenderContract.switchRateBondingCurve(stableToken.address)
+      ).to.be.revertedWithCustomError(lenderContract, "UnsupportedInterface");
     });
 
     it("Should set Apr bonding Curve", async function () {
