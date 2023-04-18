@@ -29,6 +29,7 @@ interface IFlexLender {
     }
 
     error UnsupportedInterface();
+    error NotVerified();
 
     /**
      * @notice Emits when a new fund is deposited to the Lender Pool without locking period

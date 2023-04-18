@@ -14,6 +14,8 @@ interface IFixLender {
     }
 
     error UnsupportedInterface();
+    error NotVerified();
+    error NoDeposit();
 
     /**
      * @notice Emits when new fund is deposited to the Lender Pool
