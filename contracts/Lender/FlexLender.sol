@@ -175,7 +175,7 @@ contract FlexLender is IFlexLender, AccessControl {
         require(baseStableApr < 10_001, "Invalid Stable Apr");
         require(baseBonusRate < 10_001, "Invalid Bonus Rate");
         RateInfo memory roundData = rateRounds[_currentRateRound];
-        uint256 newStableApr = baseStableApr / 1E2;
+        uint256 newStableApr = baseStableApr;
         uint256 newBonusRate = baseBonusRate *
             (10 ** (_bonusDecimal - _stableDecimal));
         unchecked {
@@ -800,7 +800,8 @@ contract FlexLender is IFlexLender, AccessControl {
             uint256 diff = endDate - startDate;
             calculatedStableReward =
                 calculatedStableReward +
-                _calculateFormula(amount, diff, rateRounds[i].stableApr);
+                (_calculateFormula(amount, diff, rateRounds[i].stableApr) /
+                    1E2);
             calculatedBonusReward =
                 calculatedBonusReward +
                 _calculateFormula(amount, diff, rateRounds[i].bonusRate);

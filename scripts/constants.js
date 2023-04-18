@@ -25,7 +25,9 @@ const p3Rate2 = 331100000;
 const PoolPeriod = 2;
 const PoolMaxLimit = 1000000 * 10 ** 6;
 const aUSDCAddress = "0x9daBC9860F8792AeE427808BDeF1f77eFeF0f24E";
+const oUSDCAddress = "0x4413dbCf851D73bEc0BBF50b474EA89bded11153";
 const USDCAddress = "0xe9DcE89B076BA6107Bb64EF30678efec11939234";
+const ovixUSDCAddress = "0xe6b8a5CF854791412c1f6EFC7CAf629f5Df1c747";
 const AAVEPool = "0x0b913A76beFF3887d35073b8e5530755D60F78C7";
 const TRADEAddress = "0x8d2e5dc3D8215d3033bd547938Fb6CE6C16992D6";
 module.exports = {
@@ -36,6 +38,8 @@ module.exports = {
   MinDeposit,
   PoolMaxLimit,
   aUSDCAddress,
+  oUSDCAddress,
+  ovixUSDCAddress,
   USDCAddress,
   AAVEPool,
   TRADEAddress,

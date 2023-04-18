@@ -193,7 +193,7 @@ describe("Flexible Lender Pool", function () {
         .to.emit(lenderContract, "BaseRateChanged")
         .withArgs(
           0,
-          SampleAPR / 100,
+          SampleAPR,
           0,
           await toRate(SampleRate, BonusDecimal, StableDecimal)
         );
@@ -203,8 +203,8 @@ describe("Flexible Lender Pool", function () {
       await expect(lenderContract.changeBaseRates(SampleAPR2, SampleRate))
         .to.emit(lenderContract, "BaseRateChanged")
         .withArgs(
-          SampleAPR / 100,
-          SampleAPR2 / 100,
+          SampleAPR,
+          SampleAPR2,
           await toRate(SampleRate, BonusDecimal, StableDecimal),
           await toRate(SampleRate, BonusDecimal, StableDecimal)
         );
@@ -214,8 +214,8 @@ describe("Flexible Lender Pool", function () {
       await expect(lenderContract.changeBaseRates(SampleAPR2, SampleRate2))
         .to.emit(lenderContract, "BaseRateChanged")
         .withArgs(
-          SampleAPR2 / 100,
-          SampleAPR2 / 100,
+          SampleAPR2,
+          SampleAPR2,
           await toRate(SampleRate, BonusDecimal, StableDecimal),
           await toRate(SampleRate2, BonusDecimal, StableDecimal)
         );
@@ -1510,7 +1510,7 @@ describe("Flexible Lender Pool", function () {
     it("Should get Base Apr", async function () {
       expect(
         await lenderContract.connect(accounts[2]).getBaseApr()
-      ).to.be.equal(SampleAPR / 100);
+      ).to.be.equal(SampleAPR);
     });
 
     it("Should get Base Rate", async function () {

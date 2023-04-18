@@ -98,7 +98,7 @@ contract FixLender is IFixLender, AccessControl {
         _bonusToken = IToken(bonusToken_);
         _stableDecimal = _stableToken.decimals();
         _bonusDecimal = _bonusToken.decimals();
-        _stableApr = stableApr_ / 1E2;
+        _stableApr = stableApr_;
         _bonusRate = bonusRate_ * (10 ** (_bonusDecimal - _stableDecimal));
         _poolStartDate = poolStartDate_;
         _depositEndDate = depositEndDate_;
@@ -460,7 +460,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 diff = endDate - lenderData.lastUpdateDate;
         uint256 totalDeposit = lenderData.totalDeposit;
         return (
-            _calculateFormula(totalDeposit, diff, _stableApr),
+            _calculateFormula(totalDeposit, diff, _stableApr) / 1E2,
             _calculateFormula(totalDeposit, diff, _bonusRate)
         );
     }
