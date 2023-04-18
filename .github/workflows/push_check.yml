@@ -43,5 +43,6 @@ jobs:
         run: npm run test:coverage
         env:
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-          ARCHIVAL_RPC: ${{ secrets.ARCHIVAL_RPC }}
+          MAINNET_ARCHIVAL_RPC: ${{ secrets.MAINNET_ARCHIVAL_RPC }}
+          TESTNET_ARCHIVAL_RPC: ${{ secrets.TESTNET_ARCHIVAL_RPC }}
           POLYGONSCAN_API_KEY: ${{ secrets.POLYGONSCAN_API_KEY }}

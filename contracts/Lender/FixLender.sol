@@ -98,7 +98,7 @@ contract FixLender is IFixLender, AccessControl {
         _bonusToken = IToken(bonusToken_);
         _stableDecimal = _stableToken.decimals();
         _bonusDecimal = _bonusToken.decimals();
-        _stableApr = stableApr_ / 1E2;
+        _stableApr = stableApr_;
         _bonusRate = bonusRate_ * (10 ** (_bonusDecimal - _stableDecimal));
         _poolStartDate = poolStartDate_;
         _depositEndDate = depositEndDate_;
@@ -129,7 +129,7 @@ contract FixLender is IFixLender, AccessControl {
         require(_strategy.getBalance() >= amount, "Not enough balance");
         _strategy.withdraw(amount);
         _stableToken.safeTransfer(msg.sender, amount);
-        emit ClientPortalWithdrew(amount);
+        emit ClientPortalWithdrawal(amount);
     }
 
     /**
@@ -165,7 +165,9 @@ contract FixLender is IFixLender, AccessControl {
         if (oldStrategy != address(0)) {
             amount = _strategy.getBalance();
             _strategy.withdraw(amount);
+            _stableToken.approve(address(_strategy), 0);
         }
+        amount = _stableToken.balanceOf(address(this));
         _strategy = IStrategy(newStrategy);
         if (amount != 0) _depositInStrategy(amount);
         emit StrategySwitched(oldStrategy, newStrategy);
@@ -255,7 +257,7 @@ contract FixLender is IFixLender, AccessControl {
         uint256 bonusAmount = bonusReward + lenderData.pendingBonusReward;
         delete lenders[msg.sender];
         _poolSize = _poolSize - totalDeposit;
-        _strategy.withdraw(totalDeposit);
+        _strategy.withdraw(stableAmount);
         _bonusToken.safeTransfer(msg.sender, bonusAmount);
         _stableToken.safeTransfer(msg.sender, stableAmount);
         emit Withdrawn(msg.sender, stableAmount, bonusAmount);
@@ -458,8 +460,8 @@ contract FixLender is IFixLender, AccessControl {
         uint256 diff = endDate - lenderData.lastUpdateDate;
         uint256 totalDeposit = lenderData.totalDeposit;
         return (
-            _calculateFormula(diff, totalDeposit, _stableApr),
-            _calculateFormula(diff, totalDeposit, _bonusRate)
+            _calculateFormula(totalDeposit, diff, _stableApr) / 1E2,
+            _calculateFormula(totalDeposit, diff, _bonusRate)
         );
     }
 

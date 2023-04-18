@@ -96,7 +96,7 @@ contract FlexLender is IFlexLender, AccessControl {
         require(_strategy.getBalance() >= amount, "Not enough balance");
         _strategy.withdraw(amount);
         _stableToken.safeTransfer(msg.sender, amount);
-        emit ClientPortalWithdrew(amount);
+        emit ClientPortalWithdrawal(amount);
     }
 
     /**
@@ -157,7 +157,9 @@ contract FlexLender is IFlexLender, AccessControl {
         if (oldStrategy != address(0)) {
             amount = _strategy.getBalance();
             _strategy.withdraw(amount);
+            _stableToken.approve(address(_strategy), 0);
         }
+        amount = _stableToken.balanceOf(address(this));
         _strategy = IStrategy(newStrategy);
         if (amount > 0) _depositInStrategy(amount);
         emit StrategySwitched(oldStrategy, newStrategy);
@@ -173,7 +175,7 @@ contract FlexLender is IFlexLender, AccessControl {
         require(baseStableApr < 10_001, "Invalid Stable Apr");
         require(baseBonusRate < 10_001, "Invalid Bonus Rate");
         RateInfo memory roundData = rateRounds[_currentRateRound];
-        uint256 newStableApr = baseStableApr / 1E2;
+        uint256 newStableApr = baseStableApr;
         uint256 newBonusRate = baseBonusRate *
             (10 ** (_bonusDecimal - _stableDecimal));
         unchecked {
@@ -374,7 +376,7 @@ contract FlexLender is IFlexLender, AccessControl {
         lenderData.pendingBonusReward = 0;
         lenderData.pendingStableReward = 0;
         _poolSize = _poolSize - depositedAmount;
-        _strategy.withdraw(depositedAmount);
+        _strategy.withdraw(stableAmount);
         _bonusToken.safeTransfer(msg.sender, bonusAmount);
         _stableToken.safeTransfer(msg.sender, stableAmount);
         emit BaseWithdrawn(msg.sender, stableAmount, bonusAmount);
@@ -398,7 +400,7 @@ contract FlexLender is IFlexLender, AccessControl {
         delete lenders[msg.sender].deposits[id];
         _poolSize = _poolSize - depositedAmount;
         _updateId(msg.sender);
-        _strategy.withdraw(depositedAmount);
+        _strategy.withdraw(stableAmount);
         _bonusToken.safeTransfer(msg.sender, bonusReward);
         _stableToken.safeTransfer(msg.sender, stableAmount);
         emit Withdrawn(msg.sender, id, stableAmount, bonusReward);
@@ -798,7 +800,8 @@ contract FlexLender is IFlexLender, AccessControl {
             uint256 diff = endDate - startDate;
             calculatedStableReward =
                 calculatedStableReward +
-                _calculateFormula(amount, diff, rateRounds[i].stableApr);
+                (_calculateFormula(amount, diff, rateRounds[i].stableApr) /
+                    1E2);
             calculatedBonusReward =
                 calculatedBonusReward +
                 _calculateFormula(amount, diff, rateRounds[i].bonusRate);

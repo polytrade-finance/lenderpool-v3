@@ -150,7 +150,8 @@ describe("Strategy", function () {
   it("Should deposit 100 stable tokens with 5 accounts to strategy", async function () {
     const amount = await toStable("100");
     const bonusAmount = await toBonus("500");
-    await stableToken.transfer(lenderContract.address, 6 * amount);
+    await stableToken.approve(lenderContract.address, amount);
+    await lenderContract.deposit(amount);
     await bonusToken.transfer(lenderContract.address, bonusAmount);
     for (let i = 1; i < 6; i++) {
       await stableToken.transfer(addresses[i], amount);
@@ -163,11 +164,11 @@ describe("Strategy", function () {
     }
   });
 
-  it("Should increase aStable balance of strategy contract to 500 aUSDC", async function () {
+  it("Should increase aStable balance of strategy contract to 600 aUSDC", async function () {
     const actual = await strategy.getBalance();
     expect(parseFloat(await fromStable(actual))).to.be.within(
-      500 - 0.00001,
-      500 + 0.00001
+      600 - 0.00001,
+      600 + 0.00001
     );
   });
 
@@ -214,7 +215,9 @@ describe("Strategy", function () {
 
   it("Should switch Strategy Contract and transfer funds from old strategy to new one for fix lender", async function () {
     const oldStrategyBalance = await strategy.getBalance();
-    const oldBalance = parseFloat(await fromStable(oldStrategyBalance));
+    const lenderBalance = await stableToken.balanceOf(lenderContract.address);
+    const expectedBalance = oldStrategyBalance.add(lenderBalance);
+    const oldBalance = parseFloat(await fromStable(expectedBalance));
     strategy = await StrategyFactory2.deploy(USDCAddress, oUSDCAddress);
     await strategy.deployed();
     await strategy.grantRole(LenderPoolAccess, lenderContract.address);
@@ -260,10 +263,12 @@ describe("Strategy", function () {
     for (let i = 3; i < 6; i++) {
       const oldStrategyBalance = await strategy.callStatic.getBalance();
       const oldSBalance = parseFloat(await fromStable(oldStrategyBalance));
+      const stableRewards = await lenderContract.getStableRewards(addresses[i]);
+      const expectedStable = parseFloat(await fromStable(stableRewards));
       await lenderContract.connect(accounts[i]).withdraw();
       const newStrategyBalance = await strategy.callStatic.getBalance();
       const newSBalance = parseFloat(await fromStable(newStrategyBalance));
-      expect(oldSBalance - newSBalance).to.be.within(
+      expect(oldSBalance - newSBalance - expectedStable).to.be.within(
         100 - 0.00001,
         100 + 0.00001
       );
@@ -309,7 +314,11 @@ describe("Strategy", function () {
 
   it("Should switch Strategy Contract and transfer funds from old strategy to new one for flex lender", async function () {
     const oldStrategyBalance = await strategy2.callStatic.getBalance();
-    const oldBalance = parseFloat(await fromStable(oldStrategyBalance));
+    const lenderBalance = await stableToken.balanceOf(
+      flexLenderContract.address
+    );
+    const expectedBalance = oldStrategyBalance.add(lenderBalance);
+    const oldBalance = parseFloat(await fromStable(expectedBalance));
     strategy = await StrategyFactory.deploy(
       AAVEPool,
       USDCAddress,
@@ -336,5 +345,6 @@ describe("Strategy", function () {
     await expect(strategy2.withdraw(amount)).to.be.revertedWith(
       "Failed to withdraw from strategy"
     );
+    await unitroller._setMintPaused(oUSDCAddress, false);
   });
 });

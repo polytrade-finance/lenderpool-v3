@@ -739,7 +739,7 @@ describe("Fixed Lender Pool", function () {
       await expect(
         lenderContract.connect(accounts[1]).clientPortalWithdraw(amount)
       )
-        .to.emit(lenderContract, "ClientPortalWithdrew")
+        .to.emit(lenderContract, "ClientPortalWithdrawal")
         .withArgs(amount);
       const stableAfterWith = await stableToken.balanceOf(addresses[1]);
       const stableBalance = stableAfterWith.sub(stableBeforeWith);
@@ -1033,7 +1033,7 @@ describe("Fixed Lender Pool", function () {
 
     it("Should get APR for stable rewards", async function () {
       expect(await lenderContract.connect(accounts[2]).getApr()).to.be.equal(
-        SampleAPR / 100
+        SampleAPR
       );
     });
 

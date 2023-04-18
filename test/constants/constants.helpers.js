@@ -24,6 +24,7 @@ const p3Rate = 24640000;
 const LockingMaxLimit = 365;
 const LockingMinLimit = 90;
 const PoolMaxLimit = 10000 * 10 ** StableDecimal;
+const PoolMaxLimit2 = 100000000 * 10 ** StableDecimal;
 const DAY = 1 * 60 * 60 * 24;
 const YEAR = 365 * 60 * 60 * 24;
 const oUSDCAddress = "0xEBb865Bf286e6eA8aBf5ac97e1b56A76530F3fBe";
@@ -46,6 +47,7 @@ module.exports = {
   SamplePeriod,
   MinDeposit,
   PoolMaxLimit,
+  PoolMaxLimit2,
   DAY,
   YEAR,
   oUSDCAddress,

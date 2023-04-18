@@ -7,7 +7,9 @@ const {
   MinDeposit,
   PoolMaxLimit,
   aUSDCAddress,
+  oUSDCAddress,
   USDCAddress,
+  ovixUSDCAddress,
   AAVEPool,
   TRADEAddress,
   p1Apr1,
@@ -28,8 +30,8 @@ const {
 } = require("./constants");
 
 async function main() {
-  const startDate = Math.round(Date.now() / 1000 + 1 * DAY);
-  const depositEndDate = Math.round(Date.now() / 1000 + 3 * DAY - 10000);
+  const startDate = Math.round(Date.now() / 1000 + 100);
+  const depositEndDate = Math.round(Date.now() / 1000 + 1 * DAY - 100);
   const FlexLender = await ethers.getContractFactory("FlexLender");
   const flex = await FlexLender.deploy(
     Admin,
@@ -51,13 +53,13 @@ async function main() {
   const FixLender = await ethers.getContractFactory("FixLender");
   const fix = await FixLender.deploy(
     Admin,
-    USDCAddress,
+    ovixUSDCAddress,
     TRADEAddress,
     StableApr,
     BonusRate,
     startDate,
     depositEndDate,
-    2,
+    1,
     MinDeposit,
     PoolMaxLimit,
     false
@@ -67,6 +69,15 @@ async function main() {
   const Strategy = await ethers.getContractFactory("Strategy");
   const strategy = await Strategy.deploy(AAVEPool, USDCAddress, aUSDCAddress);
   await strategy.deployed();
+
+  const Strategy2 = await ethers.getContractFactory("OvixStrategy");
+  const strategy2 = await Strategy2.deploy(ovixUSDCAddress, oUSDCAddress);
+  await strategy2.deployed();
+
+  const UsdContract = await ethers.getContractFactory("Token");
+  const usdc = UsdContract.attach(ovixUSDCAddress);
+
+  await usdc.approve(fix.address, ethers.constants.MaxUint256);
 
   const CurveFactory1 = await ethers.getContractFactory("BondingCurve");
   const aprCurve1 = await CurveFactory1.deploy(p1Apr1, p2Apr1, p3Apr1, 4);
@@ -83,9 +94,11 @@ async function main() {
   await strategy.grantRole(LenderPoolAccess, flex.address);
   await strategy.grantRole(LenderPoolAccess, flex2.address);
   await strategy.grantRole(LenderPoolAccess, fix.address);
+  await strategy2.grantRole(LenderPoolAccess, fix.address);
   await flex.switchStrategy(strategy.address);
   await flex2.switchStrategy(strategy.address);
   await fix.switchStrategy(strategy.address);
+  await fix.switchStrategy(strategy2.address);
   await flex.changeBaseRates(BaseApr, BaseRate);
   await flex2.changeBaseRates(BaseApr, BaseRate);
   await flex.changeDurationLimit(0, 365);
@@ -100,6 +113,7 @@ async function main() {
   console.log("FlexLender deployed to:", flex2.address);
   console.log("FixLender deployed to:", fix.address);
   console.log("Strategy deployed to:", strategy.address);
+  console.log("Strategy2 deployed to:", strategy2.address);
   console.log("aprCurve1 deployed to:", aprCurve1.address);
   console.log("rateCurve1 deployed to:", rateCurve1.address);
   console.log("aprCurve2 deployed to:", aprCurve2.address);
