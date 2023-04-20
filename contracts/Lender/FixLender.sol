@@ -221,10 +221,6 @@ contract FixLender is IFixLender, AccessControl {
      * @dev See {IFixLender-claimBonus}.
      */
     function claimBonus() external hasDeposit {
-        // require(
-        //     lenders[msg.sender].totalDeposit != 0,
-        //     "You have not deposited anything"
-        // );
         require(block.timestamp > _poolStartDate, "Pool has not started yet");
         (uint256 stableReward, uint256 bonusReward) = _calculateRewards(
             msg.sender
@@ -247,10 +243,6 @@ contract FixLender is IFixLender, AccessControl {
      */
     function withdraw() external hasDeposit {
         require(block.timestamp > _poolEndDate, "Pool has not ended yet");
-        // require(
-        //     lenders[msg.sender].totalDeposit != 0,
-        //     "You have nothing to withdraw"
-        // );
         (uint256 stableReward, uint256 bonusReward) = _calculateRewards(
             msg.sender
         );
@@ -272,10 +264,6 @@ contract FixLender is IFixLender, AccessControl {
      * @dev See {IFixLender-emergencyWithdraw}.
      */
     function emergencyWithdraw() external hasDeposit {
-        // require(
-        //     lenders[msg.sender].totalDeposit != 0,
-        //     "You have nothing to withdraw"
-        // );
         require(
             block.timestamp < _poolEndDate,
             "You can not emergency withdraw"
