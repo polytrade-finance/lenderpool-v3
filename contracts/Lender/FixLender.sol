@@ -271,14 +271,18 @@ contract FixLender is IFixLender, AccessControl {
         uint256 totalDeposit = lenders[msg.sender].totalDeposit;
         uint256 withdrawFee = (totalDeposit * _withdrawPenaltyPercent) / 1E4;
         uint256 refundAmount = totalDeposit - withdrawFee;
+        uint256 bonusReward;
+        if (block.timestamp > _poolStartDate)
+            (, bonusReward) = _calculateRewards(msg.sender);
         delete lenders[msg.sender];
         _poolSize = _poolSize - totalDeposit;
         _totalWithdrawFee =
             _totalWithdrawFee +
             _strategy.withdraw(totalDeposit) -
             refundAmount;
+        _bonusToken.safeTransfer(msg.sender, bonusReward);
         _stableToken.safeTransfer(msg.sender, refundAmount);
-        emit WithdrawnEmergency(msg.sender, refundAmount);
+        emit WithdrawnEmergency(msg.sender, refundAmount, bonusReward);
     }
 
     /**
