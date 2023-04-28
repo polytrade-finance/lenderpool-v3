@@ -209,7 +209,7 @@ describe("Fixed Lender Pool 2nd Test", function () {
         USDCAddress,
         bonusAddress,
         SampleAPR,
-        SampleRate,
+        0,
         currentTime + DAY,
         currentTime + 10 * DAY,
         SamplePeriod,
@@ -222,9 +222,37 @@ describe("Fixed Lender Pool 2nd Test", function () {
       await lenderContract.switchStrategy(strategy.address);
     });
 
+    it("Should emergency withdraw all deposits before pool start date without rewards", async function () {
+      const amount = await toStable("100");
+      const rate = 0;
+      await stableToken.transfer(addresses[1], 2 * amount);
+      await stableToken
+        .connect(accounts[1])
+        .approve(lenderContract.address, 2 * amount);
+      await lenderContract.connect(accounts[1]).deposit(2 * amount);
+
+      const expectedBonus = 0;
+      const expectedStable = 200 - 200 * rate;
+      const bonusBeforeWith = await bonusToken.balanceOf(addresses[1]);
+      const stableBeforeWith = await stableToken.balanceOf(addresses[1]);
+      await expect(lenderContract.connect(accounts[1]).emergencyWithdraw())
+        .to.emit(lenderContract, "WithdrawnEmergency")
+        .withArgs(addresses[1], 2 * amount, 0);
+      const bonusAfterWith = await bonusToken.balanceOf(addresses[1]);
+      const stableAfterWith = await stableToken.balanceOf(addresses[1]);
+      const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
+      const stableBalance = stableAfterWith.sub(stableBeforeWith);
+      const actualBonus = parseFloat(await fromBonus(bonusBalance));
+      const actualStable = parseFloat(await fromStable(stableBalance));
+      expect(actualBonus).to.be.equal(expectedBonus);
+      expect(actualStable).to.be.equal(expectedStable);
+    });
+
     it("Should emergency withdraw all deposits before pool end date (Rate: 0%)", async function () {
       const amount = await toStable("100");
       const rate = 0;
+      const bonusAmount = await toBonus("100");
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
       await stableToken.transfer(addresses[1], 2 * amount);
       await stableToken
         .connect(accounts[1])
@@ -239,13 +267,13 @@ describe("Fixed Lender Pool 2nd Test", function () {
       const Period = (SamplePeriod - 10) * DAY;
       // increase to 10 days before pool end date
       await time.increase(Period - 10);
-      const expectedStable = 200 - 200 * rate;
       const expectedBonus = 0;
+      const expectedStable = 200 - 200 * rate;
       const bonusBeforeWith = await bonusToken.balanceOf(addresses[1]);
       const stableBeforeWith = await stableToken.balanceOf(addresses[1]);
       await expect(lenderContract.connect(accounts[1]).emergencyWithdraw())
         .to.emit(lenderContract, "WithdrawnEmergency")
-        .withArgs(addresses[1], 2 * amount);
+        .withArgs(addresses[1], 2 * amount, 0);
       const bonusAfterWith = await bonusToken.balanceOf(addresses[1]);
       const stableAfterWith = await stableToken.balanceOf(addresses[1]);
       const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
@@ -254,7 +282,6 @@ describe("Fixed Lender Pool 2nd Test", function () {
       const actualStable = parseFloat(await fromStable(stableBalance));
       expect(actualBonus).to.be.equal(expectedBonus);
       expect(actualStable).to.be.equal(expectedStable);
-      expect(await lenderContract.getPoolSize());
     });
 
     it("Should switch to ovix strategy and deposit lender balance to new strategy and revoke approval", async function () {
