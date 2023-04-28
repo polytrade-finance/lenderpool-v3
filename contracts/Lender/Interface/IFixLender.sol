@@ -48,8 +48,13 @@ interface IFixLender {
      * @notice Emits when a lender tries to withdraw from pool before pool end date
      * @param lender is the address of the 'lender'
      * @param amount is the amount that withdrawn by lender
+     * @param bonusReward is the accumulated bonus rewards that withdrawn by lender
      */
-    event WithdrawnEmergency(address indexed lender, uint256 amount);
+    event WithdrawnEmergency(
+        address indexed lender,
+        uint256 amount,
+        uint256 bonusReward
+    );
 
     /**
      * @notice Emits when an admin changes the rate for the emergency withdraw fee
