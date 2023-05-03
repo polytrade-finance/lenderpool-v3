@@ -51,8 +51,13 @@ contract FixLender is IFixLender, AccessControl {
 
     modifier isValid() {
         if (_verificationStatus) {
-            require(_verification.isValid(msg.sender), "You are not verified");
+            if (!_verification.isValid(msg.sender)) revert NotVerified();
         }
+        _;
+    }
+
+    modifier hasDeposit() {
+        if (lenders[msg.sender].totalDeposit == 0) revert NoDeposit();
         _;
     }
 
@@ -215,11 +220,7 @@ contract FixLender is IFixLender, AccessControl {
     /**
      * @dev See {IFixLender-claimBonus}.
      */
-    function claimBonus() external {
-        require(
-            lenders[msg.sender].totalDeposit != 0,
-            "You have not deposited anything"
-        );
+    function claimBonus() external hasDeposit {
         require(block.timestamp > _poolStartDate, "Pool has not started yet");
         (uint256 stableReward, uint256 bonusReward) = _calculateRewards(
             msg.sender
@@ -240,12 +241,8 @@ contract FixLender is IFixLender, AccessControl {
     /**
      * @dev See {IFixLender-withdraw}.
      */
-    function withdraw() external {
+    function withdraw() external hasDeposit {
         require(block.timestamp > _poolEndDate, "Pool has not ended yet");
-        require(
-            lenders[msg.sender].totalDeposit != 0,
-            "You have nothing to withdraw"
-        );
         (uint256 stableReward, uint256 bonusReward) = _calculateRewards(
             msg.sender
         );
@@ -266,11 +263,7 @@ contract FixLender is IFixLender, AccessControl {
     /**
      * @dev See {IFixLender-emergencyWithdraw}.
      */
-    function emergencyWithdraw() external {
-        require(
-            lenders[msg.sender].totalDeposit != 0,
-            "You have nothing to withdraw"
-        );
+    function emergencyWithdraw() external hasDeposit {
         require(
             block.timestamp < _poolEndDate,
             "You can not emergency withdraw"
@@ -278,14 +271,18 @@ contract FixLender is IFixLender, AccessControl {
         uint256 totalDeposit = lenders[msg.sender].totalDeposit;
         uint256 withdrawFee = (totalDeposit * _withdrawPenaltyPercent) / 1E4;
         uint256 refundAmount = totalDeposit - withdrawFee;
+        uint256 bonusReward;
+        if (block.timestamp > _poolStartDate)
+            (, bonusReward) = _calculateRewards(msg.sender);
         delete lenders[msg.sender];
         _poolSize = _poolSize - totalDeposit;
         _totalWithdrawFee =
             _totalWithdrawFee +
             _strategy.withdraw(totalDeposit) -
             refundAmount;
+        _bonusToken.safeTransfer(msg.sender, bonusReward);
         _stableToken.safeTransfer(msg.sender, refundAmount);
-        emit WithdrawnEmergency(msg.sender, refundAmount);
+        emit WithdrawnEmergency(msg.sender, refundAmount, bonusReward);
     }
 
     /**

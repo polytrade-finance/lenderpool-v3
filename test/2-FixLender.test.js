@@ -436,7 +436,7 @@ describe("Fixed Lender Pool", function () {
     it("Should fail if there is no deposit", async function () {
       await expect(
         lenderContract.connect(accounts[1]).claimBonus()
-      ).to.be.revertedWith("You have not deposited anything");
+      ).to.be.revertedWithCustomError(lenderContract, "NoDeposit");
     });
 
     it("Should fail if claim before starting pool", async function () {
@@ -587,7 +587,7 @@ describe("Fixed Lender Pool", function () {
       await time.increase(Period);
       await expect(
         lenderContract.connect(accounts[1]).withdraw()
-      ).to.be.revertedWith("You have nothing to withdraw");
+      ).to.be.revertedWithCustomError(lenderContract, "NoDeposit");
     });
 
     it("Should fail if withdraw before pool end date", async function () {
@@ -755,7 +755,7 @@ describe("Fixed Lender Pool", function () {
         USDCAddress,
         bonusAddress,
         SampleAPR,
-        SampleRate,
+        0,
         currentTime + DAY,
         currentTime + 10 * DAY,
         SamplePeriod,
@@ -773,7 +773,7 @@ describe("Fixed Lender Pool", function () {
       await time.increase(DAY);
       await expect(
         lenderContract.connect(accounts[1]).emergencyWithdraw()
-      ).to.be.revertedWith("You have nothing to withdraw");
+      ).to.be.revertedWithCustomError(lenderContract, "NoDeposit");
     });
 
     it("Should fail to change withdraw rate to more than or equal to 100%", async function () {
@@ -829,7 +829,9 @@ describe("Fixed Lender Pool", function () {
 
     it("Should emergency withdraw all deposits before pool end date (Rate: 0%)", async function () {
       const amount = await toStable("100");
+      const bonusAmount = await toBonus("100");
       const rate = 0;
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
       await stableToken.transfer(addresses[1], 2 * amount);
       await stableToken
         .connect(accounts[1])
@@ -850,7 +852,7 @@ describe("Fixed Lender Pool", function () {
       const stableBeforeWith = await stableToken.balanceOf(addresses[1]);
       await expect(lenderContract.connect(accounts[1]).emergencyWithdraw())
         .to.emit(lenderContract, "WithdrawnEmergency")
-        .withArgs(addresses[1], 2 * amount);
+        .withArgs(addresses[1], 2 * amount, 0);
       const bonusAfterWith = await bonusToken.balanceOf(addresses[1]);
       const stableAfterWith = await stableToken.balanceOf(addresses[1]);
       const bonusBalance = bonusAfterWith.sub(bonusBeforeWith);
@@ -871,6 +873,8 @@ describe("Fixed Lender Pool", function () {
         await lenderContract.connect(accounts[2]).getWithdrawPenaltyPercent()
       ).to.be.equal(52);
       const amount = await toStable("100");
+      const bonusAmount = await toBonus("100");
+      await bonusToken.transfer(lenderContract.address, bonusAmount);
       for (let i = 1; i < 4; i++) {
         await stableToken.transfer(addresses[i], 2 * amount);
         await stableToken

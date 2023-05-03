@@ -202,15 +202,21 @@ describe("Strategy", function () {
   });
 
   it("Should fail to set strategy without interface support", async function () {
-    await expect(lenderContract.switchStrategy(stableToken.address)).to.be
-      .reverted;
-    await expect(flexLenderContract.switchStrategy(stableToken.address)).to.be
-      .reverted;
+    await expect(
+      lenderContract.switchStrategy(stableToken.address)
+    ).to.be.revertedWithCustomError(lenderContract, "UnsupportedInterface");
+    await expect(
+      flexLenderContract.switchStrategy(stableToken.address)
+    ).to.be.revertedWithCustomError(lenderContract, "UnsupportedInterface");
   });
 
   it("Should fail to switch Strategy contract to invalid address", async function () {
-    await expect(lenderContract.switchStrategy(ZeroAddress)).to.be.reverted;
-    await expect(flexLenderContract.switchStrategy(ZeroAddress)).to.be.reverted;
+    await expect(
+      lenderContract.switchStrategy(ZeroAddress)
+    ).to.be.revertedWithCustomError(lenderContract, "UnsupportedInterface");
+    await expect(
+      flexLenderContract.switchStrategy(ZeroAddress)
+    ).to.be.revertedWithCustomError(lenderContract, "UnsupportedInterface");
   });
 
   it("Should switch Strategy Contract and transfer funds from old strategy to new one for fix lender", async function () {

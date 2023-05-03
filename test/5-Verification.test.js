@@ -159,15 +159,15 @@ describe("Verification", function () {
       .approve(flexLenderContract.address, amount);
     await expect(
       lenderContract.connect(accounts[1]).deposit(amount)
-    ).to.be.revertedWith("You are not verified");
+    ).to.be.revertedWithCustomError(lenderContract, "NotVerified");
     await expect(
       flexLenderContract.connect(accounts[1])["deposit(uint256)"](amount)
-    ).to.be.revertedWith("You are not verified");
+    ).to.be.revertedWithCustomError(flexLenderContract, "NotVerified");
     await expect(
       flexLenderContract
         .connect(accounts[1])
         ["deposit(uint256,uint256)"](amount, 180)
-    ).to.be.revertedWith("You are not verified");
+    ).to.be.revertedWithCustomError(flexLenderContract, "NotVerified");
   });
 
   it("Should set acc1 KYC valid and deposit", async function () {
@@ -190,10 +190,10 @@ describe("Verification", function () {
     expect(await verification.isValid(addresses[1])).to.equal(false);
     await expect(
       lenderContract.connect(accounts[1]).deposit(amount)
-    ).to.be.revertedWith("You are not verified");
+    ).to.be.revertedWithCustomError(lenderContract, "NotVerified");
     await expect(
       flexLenderContract.connect(accounts[1])["deposit(uint256)"](amount)
-    ).to.be.revertedWith("You are not verified");
+    ).to.be.revertedWithCustomError(flexLenderContract, "NotVerified");
   });
 
   it("Should change verification status for flex lender to false", async () => {

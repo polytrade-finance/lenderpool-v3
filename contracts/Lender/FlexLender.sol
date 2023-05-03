@@ -52,8 +52,9 @@ contract FlexLender is IFlexLender, AccessControl {
     IToken private immutable _bonusToken;
 
     modifier isValid() {
-        if (_verificationStatus)
-            require(_verification.isValid(msg.sender), "You are not verified");
+        if (_verificationStatus) {
+            if (!_verification.isValid(msg.sender)) revert NotVerified();
+        }
         _;
     }
 
