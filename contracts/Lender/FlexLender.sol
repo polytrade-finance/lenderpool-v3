@@ -388,15 +388,15 @@ contract FlexLender is IFlexLender, AccessControl {
      */
     function withdraw(uint256 id) external {
         Deposit memory depositData = lenders[msg.sender].deposits[id];
-        require(depositData.amount != 0, "You have nothing with this ID");
+        uint256 depositedAmount = depositData.amount;
         uint256 depositEndDate = depositData.endDate;
+        require(depositedAmount != 0, "You have nothing with this ID");
         require(block.timestamp >= depositEndDate, "You can not withdraw yet");
         (uint256 stableReward, uint256 bonusReward) = _calculateRewards(
             msg.sender,
             id,
             depositEndDate
         );
-        uint256 depositedAmount = depositData.amount;
         uint256 stableAmount = depositedAmount + stableReward;
         delete lenders[msg.sender].deposits[id];
         _poolSize = _poolSize - depositedAmount;
@@ -412,10 +412,7 @@ contract FlexLender is IFlexLender, AccessControl {
      */
     function emergencyWithdraw(uint256 id) external {
         Deposit memory depositData = lenders[msg.sender].deposits[id];
-        require(
-            lenders[msg.sender].deposits[id].amount != 0,
-            "You have nothing with this ID"
-        );
+        require(depositData.amount != 0, "You have nothing with this ID");
         require(
             block.timestamp <
                 depositData.startDate + depositData.lockingDuration,
